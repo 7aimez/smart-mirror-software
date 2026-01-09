@@ -205,7 +205,8 @@
       top: 5.5rem;
       right: 1.5rem;
       z-index: 99;
-      padding: 0.5rem;
+      width: 280px;
+      padding: 1rem;
       background: var(--glass);
       backdrop-filter: blur(30px);
       -webkit-backdrop-filter: blur(30px);
@@ -215,6 +216,8 @@
       opacity: 0;
       visibility: hidden;
       transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow-y: auto;
+      max-height: 70vh;
     }
 
     #settings:not([hidden]) {
@@ -223,27 +226,48 @@
       visibility: visible;
     }
 
-    #settings h2 {
-      display: none;
+    .settings-section {
+      margin-bottom: 1.25rem;
     }
 
-    #settings label {
+    .settings-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .settings-section h3 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.375rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .settings-item {
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 0.875rem;
-      padding: 0.875rem 1.25rem;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.75rem 0.5rem;
       border-radius: 12px;
       cursor: pointer;
       transition: background 0.2s ease;
-      white-space: nowrap;
     }
 
-    #settings label:hover {
+    .settings-item:hover {
       background: rgba(255, 255, 255, 0.06);
     }
 
-    #settings label i {
+    .settings-item-label {
+      display: flex;
+      align-items: center;
+      gap: 0.875rem;
+      font-size: 0.875rem;
+    }
+
+    .settings-item-label i {
       font-size: 1rem;
       width: 20px;
       text-align: center;
@@ -251,7 +275,7 @@
       transition: color 0.2s ease;
     }
 
-    #settings label:has(input:checked) i {
+    .settings-item:has(input:checked) i {
       color: var(--accent);
     }
 
@@ -291,8 +315,109 @@
       background: #000;
     }
 
+    /* Color Picker */
+    .color-picker {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .color-option {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .color-option:hover {
+      transform: scale(1.1);
+    }
+
+    .color-option.selected {
+      border-color: var(--accent);
+      transform: scale(1.1);
+    }
+
+    /* Range Slider */
+    .range-slider {
+      width: 100%;
+      height: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+      outline: none;
+      margin-top: 0.5rem;
+    }
+
+    .range-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .range-slider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .range-value {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: 0.25rem;
+      text-align: right;
+    }
+
+    /* Button Style */
+    .settings-button {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .settings-button:hover {
+      background: rgba(255, 255, 255, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .settings-button.danger {
+      background: rgba(255, 50, 50, 0.1);
+      border-color: rgba(255, 50, 50, 0.2);
+      color: rgba(255, 100, 100, 0.9);
+    }
+
+    .settings-button.danger:hover {
+      background: rgba(255, 50, 50, 0.15);
+    }
+
     .note {
-      display: none;
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      margin-top: 0.25rem;
+      padding: 0 0.5rem;
     }
 
     /* ===== RESPONSIVE ===== */
@@ -349,6 +474,8 @@
       #settings {
         top: 4.5rem;
         right: 1rem;
+        width: calc(100vw - 2rem);
+        max-width: 300px;
       }
     }
 
@@ -408,12 +535,117 @@
           </button>
     
           <section id="settings" hidden>
-            <h2>Settings</h2>
-            <label>
-              <i class="fa-solid fa-face-smile"></i>
-              <input type="checkbox" id="face-toggle" class="toggle-switch">
-            </label>
-            <p class="note">Uses the native FaceDetector if available; falls back to tracking.js.</p>
+            <div class="settings-section">
+              <h3>Face Detection</h3>
+              <div class="settings-item">
+                <label class="settings-item-label">
+                  <i class="fa-solid fa-face-smile"></i>
+                  <span>Enable Face Detection</span>
+                </label>
+                <input type="checkbox" id="face-toggle" class="toggle-switch">
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <h3>Box Appearance</h3>
+              <div class="settings-item">
+                <label class="settings-item-label">
+                  <i class="fa-solid fa-palette"></i>
+                  <span>Box Color</span>
+                </label>
+                <input type="checkbox" id="box-color-toggle" class="toggle-switch" hidden>
+              </div>
+              <div class="color-picker" id="color-picker">
+                <div class="color-option selected" data-color="#00FF00" style="background-color: #00FF00;"></div>
+                <div class="color-option" data-color="#FF8C00" style="background-color: #FF8C00;"></div>
+                <div class="color-option" data-color="#00AAFF" style="background-color: #00AAFF;"></div>
+                <div class="color-option" data-color="#FF00FF" style="background-color: #FF00FF;"></div>
+                <div class="color-option" data-color="#FFFF00" style="background-color: #FFFF00;"></div>
+              </div>
+              
+              <div class="settings-item">
+                <label class="settings-item-label">
+                  <i class="fa-solid fa-expand-alt"></i>
+                  <span>Box Thickness</span>
+                </label>
+                <input type="range" id="box-thickness" class="range-slider" min="1" max="10" value="2">
+              </div>
+              <div class="range-value" id="thickness-value">2px</div>
+              
+              <div class="settings-item">
+                <label class="settings-item-label">
+                  <i class="fa-solid fa-fill-drip"></i>
+                  <span>Box Opacity</span>
+                </label>
+                <input type="range" id="box-opacity" class="range-slider" min="0" max="100" value="5">
+              </div>
+              <div class="range-value" id="opacity-value">5%</div>
+            </div>
+
+            <div class="settings-section">
+              <h3>Widgets</h3>
+              <div class="settings-item">
+                <label class="settings-item-label">
+                  <i class="fa-solid fa-clock"></i>
+                  <span>Show Time Widget</span>
+                </label>
+                <input type="checkbox" id="time-widget-toggle" class="toggle-switch" checked>
+              </div>
+              <div class="settings-item">
+                <label class="settings-item-label">
+                  <i class="fa-solid fa-cloud-sun"></i>
+                  <span>Show Weather Widget</span>
+                </label>
+                <input type="checkbox" id="weather-widget-toggle" class="toggle-switch" checked>
+              </div>
+              <div class="settings-item">
+                <label class="settings-item-label">
+                  <i class="fa-solid fa-sun"></i>
+                  <span>Widget Transparency</span>
+                </label>
+                <input type="range" id="widget-transparency" class="range-slider" min="0" max="100" value="0">
+              </div>
+              <div class="range-value" id="transparency-value">0%</div>
+            </div>
+
+            <div class="settings-section">
+              <h3>Camera</h3>
+              <div class="settings-item">
+                <label class="settings-item-label">
+                  <i class="fa-solid fa-camera"></i>
+                  <span>Mirror Camera</span>
+                </label>
+                <input type="checkbox" id="mirror-camera" class="toggle-switch" checked>
+              </div>
+              <div class="settings-item">
+                <label class="settings-item-label">
+                  <i class="fa-solid fa-lightbulb"></i>
+                  <span>Low Light Mode</span>
+                </label>
+                <input type="checkbox" id="low-light-mode" class="toggle-switch">
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <h3>System</h3>
+              <div class="settings-item">
+                <label class="settings-item-label">
+                  <i class="fa-solid fa-moon"></i>
+                  <span>Dark Mode</span>
+                </label>
+                <input type="checkbox" id="dark-mode" class="toggle-switch" checked>
+              </div>
+              <button class="settings-button" id="reset-settings">
+                <i class="fa-solid fa-rotate-left"></i>
+                <span>Reset All Settings</span>
+              </button>
+              <button class="settings-button danger" id="clear-data">
+                <i class="fa-solid fa-trash"></i>
+                <span>Clear All Data</span>
+              </button>
+            </div>
+
+            <p class="note">Uses native FaceDetector if available; falls back to tracking.js.</p>
           </section>
         </div>
       </div>
@@ -507,6 +739,254 @@
 
     fetchWeather();
     setInterval(fetchWeather, 600000); // Refresh every 10 minutes
+
+    // ===== ENHANCED SETTINGS FUNCTIONALITY =====
+    (function() {
+      // Settings State
+      let settings = {
+        faceDetection: true,
+        boxColor: '#00FF00',
+        boxThickness: 2,
+        boxOpacity: 5,
+        showTimeWidget: true,
+        showWeatherWidget: true,
+        widgetTransparency: 0,
+        mirrorCamera: true,
+        lowLightMode: false,
+        darkMode: true
+      };
+
+      // Load settings from localStorage
+      function loadSettings() {
+        const saved = localStorage.getItem('smartMirrorSettings');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            Object.assign(settings, parsed);
+          } catch (e) {
+            console.warn('Failed to parse saved settings', e);
+          }
+        }
+      }
+
+      // Save settings to localStorage
+      function saveSettings() {
+        localStorage.setItem('smartMirrorSettings', JSON.stringify(settings));
+      }
+
+      // Initialize settings UI
+      function initSettings() {
+        loadSettings();
+        
+        // Set initial values
+        document.getElementById('face-toggle').checked = settings.faceDetection;
+        document.getElementById('time-widget-toggle').checked = settings.showTimeWidget;
+        document.getElementById('weather-widget-toggle').checked = settings.showWeatherWidget;
+        document.getElementById('mirror-camera').checked = settings.mirrorCamera;
+        document.getElementById('low-light-mode').checked = settings.lowLightMode;
+        document.getElementById('dark-mode').checked = settings.darkMode;
+        
+        document.getElementById('box-thickness').value = settings.boxThickness;
+        document.getElementById('box-opacity').value = settings.boxOpacity;
+        document.getElementById('widget-transparency').value = settings.widgetTransparency;
+        
+        // Update display values
+        updateRangeValue('thickness-value', settings.boxThickness, 'px');
+        updateRangeValue('opacity-value', settings.boxOpacity, '%');
+        updateRangeValue('transparency-value', settings.widgetTransparency, '%');
+        
+        // Apply initial settings
+        applyAllSettings();
+        
+        // Color picker
+        const colorOptions = document.querySelectorAll('.color-option');
+        colorOptions.forEach(option => {
+          if (option.dataset.color === settings.boxColor) {
+            option.classList.add('selected');
+          }
+          
+          option.addEventListener('click', () => {
+            colorOptions.forEach(o => o.classList.remove('selected'));
+            option.classList.add('selected');
+            settings.boxColor = option.dataset.color;
+            saveSettings();
+            applyBoxAppearance();
+          });
+        });
+
+        // Range sliders
+        document.getElementById('box-thickness').addEventListener('input', (e) => {
+          settings.boxThickness = parseInt(e.target.value);
+          updateRangeValue('thickness-value', settings.boxThickness, 'px');
+          saveSettings();
+          applyBoxAppearance();
+        });
+
+        document.getElementById('box-opacity').addEventListener('input', (e) => {
+          settings.boxOpacity = parseInt(e.target.value);
+          updateRangeValue('opacity-value', settings.boxOpacity, '%');
+          saveSettings();
+          applyBoxAppearance();
+        });
+
+        document.getElementById('widget-transparency').addEventListener('input', (e) => {
+          settings.widgetTransparency = parseInt(e.target.value);
+          updateRangeValue('transparency-value', settings.widgetTransparency, '%');
+          saveSettings();
+          applyWidgetTransparency();
+        });
+
+        // Toggles
+        document.getElementById('face-toggle').addEventListener('change', (e) => {
+          settings.faceDetection = e.target.checked;
+          saveSettings();
+          // Will be handled by the face detection script
+        });
+
+        document.getElementById('time-widget-toggle').addEventListener('change', (e) => {
+          settings.showTimeWidget = e.target.checked;
+          saveSettings();
+          applyWidgetVisibility();
+        });
+
+        document.getElementById('weather-widget-toggle').addEventListener('change', (e) => {
+          settings.showWeatherWidget = e.target.checked;
+          saveSettings();
+          applyWidgetVisibility();
+        });
+
+        document.getElementById('mirror-camera').addEventListener('change', (e) => {
+          settings.mirrorCamera = e.target.checked;
+          saveSettings();
+          applyCameraSettings();
+        });
+
+        document.getElementById('low-light-mode').addEventListener('change', (e) => {
+          settings.lowLightMode = e.target.checked;
+          saveSettings();
+          // This would need camera API adjustments to implement
+        });
+
+        document.getElementById('dark-mode').addEventListener('change', (e) => {
+          settings.darkMode = e.target.checked;
+          saveSettings();
+          applyDarkMode();
+        });
+
+        // Buttons
+        document.getElementById('reset-settings').addEventListener('click', () => {
+          if (confirm('Reset all settings to defaults?')) {
+            resetSettings();
+          }
+        });
+
+        document.getElementById('clear-data').addEventListener('click', () => {
+          if (confirm('Clear all saved data? This cannot be undone.')) {
+            clearAllData();
+          }
+        });
+      }
+
+      function updateRangeValue(elementId, value, suffix) {
+        document.getElementById(elementId).textContent = value + suffix;
+      }
+
+      function applyAllSettings() {
+        applyBoxAppearance();
+        applyWidgetVisibility();
+        applyWidgetTransparency();
+        applyCameraSettings();
+        applyDarkMode();
+      }
+
+      function applyBoxAppearance() {
+        // This will be used by the face detection script
+        window.__smartMirrorSettings = window.__smartMirrorSettings || {};
+        window.__smartMirrorSettings.boxColor = settings.boxColor;
+        window.__smartMirrorSettings.boxThickness = settings.boxThickness;
+        window.__smartMirrorSettings.boxOpacity = settings.boxOpacity / 100;
+      }
+
+      function applyWidgetVisibility() {
+        const timeWidget = document.querySelector('.widget-datetime');
+        const weatherWidget = document.querySelector('.widget-weather');
+        
+        if (timeWidget) {
+          timeWidget.style.display = settings.showTimeWidget ? 'block' : 'none';
+        }
+        
+        if (weatherWidget) {
+          weatherWidget.style.display = settings.showWeatherWidget ? 'block' : 'none';
+        }
+      }
+
+      function applyWidgetTransparency() {
+        const widgets = document.querySelectorAll('.widget');
+        widgets.forEach(widget => {
+          widget.style.opacity = 1 - (settings.widgetTransparency / 100);
+        });
+      }
+
+      function applyCameraSettings() {
+        const video = document.getElementById('video');
+        const overlay = document.getElementById('overlay');
+        
+        if (video) {
+          video.style.transform = settings.mirrorCamera ? 'scaleX(-1)' : 'scaleX(1)';
+        }
+        
+        if (overlay) {
+          overlay.style.transform = settings.mirrorCamera ? 'scaleX(-1)' : 'scaleX(1)';
+        }
+      }
+
+      function applyDarkMode() {
+        // Update CSS variables for dark/light mode
+        const root = document.documentElement;
+        if (settings.darkMode) {
+          root.style.setProperty('--glass', 'rgba(255, 255, 255, 0.06)');
+          root.style.setProperty('--glass-border', 'rgba(255, 255, 255, 0.1)');
+          root.style.setProperty('--text', 'rgba(255, 255, 255, 0.9)');
+          root.style.setProperty('--text-dim', 'rgba(255, 255, 255, 0.5)');
+        } else {
+          root.style.setProperty('--glass', 'rgba(0, 0, 0, 0.06)');
+          root.style.setProperty('--glass-border', 'rgba(0, 0, 0, 0.1)');
+          root.style.setProperty('--text', 'rgba(0, 0, 0, 0.9)');
+          root.style.setProperty('--text-dim', 'rgba(0, 0, 0, 0.5)');
+        }
+      }
+
+      function resetSettings() {
+        settings = {
+          faceDetection: true,
+          boxColor: '#00FF00',
+          boxThickness: 2,
+          boxOpacity: 5,
+          showTimeWidget: true,
+          showWeatherWidget: true,
+          widgetTransparency: 0,
+          mirrorCamera: true,
+          lowLightMode: false,
+          darkMode: true
+        };
+        
+        localStorage.removeItem('smartMirrorSettings');
+        initSettings();
+      }
+
+      function clearAllData() {
+        localStorage.clear();
+        alert('All data has been cleared. Page will reload.');
+        setTimeout(() => location.reload(), 1000);
+      }
+
+      // Initialize when DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initSettings);
+      } else {
+        initSettings();
+      }
+    })();
   </script>
 </body>
 </html>
