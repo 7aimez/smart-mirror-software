@@ -1,288 +1,236 @@
-// public/script.js
 (function(){
-  const DEFAULTS = { showClock: true, showWeather: true, showNotes: true, faceDetect: false };
-  const storageKey = 'smartMirrorSettingsV1';
-
-  // Elements
-  const settingsToggle = document.getElementById('settingsToggle');
-  const settingsPanel = document.getElementById('settingsPanel');
-  const settingsForm = document.getElementById('settingsForm');
-
-  const clockEl = document.getElementById('clock');
-  const clockTime = document.getElementById('clockTime');
-
-  const weatherEl = document.getElementById('weather');
-  const weatherContent = document.getElementById('weatherContent');
-
-  const notesEl = document.getElementById('notes');
-  const notesContent = document.getElementById('notesContent');
-
-  const faceStatus = document.getElementById('faceStatus');
-  const faceContent = document.getElementById('faceContent');
-  const faceArea = document.getElementById('faceArea');
-  const video = document.getElementById('cameraVideo');
+  // DOM refs
+  const video = document.getElementById('video');
   const overlay = document.getElementById('overlay');
-
-  // Checkboxes (IDs match requested names)
-  const showClockCB = document.getElementById('showClock');
-  const showWeatherCB = document.getElementById('showWeather');
-  const showNotesCB = document.getElementById('showNotes');
-  const faceDetectCB = document.getElementById('faceDetect');
+  const ctx = overlay.getContext('2d');
+  const settingsToggle = document.getElementById('settings-toggle');
+  const settingsPanel = document.getElementById('settings');
+  const faceToggle = document.getElementById('face-toggle');
 
   // State
-  let settings = loadSettings();
-  let clockTimer = null;
-  let weatherTimer = null;
-  let fdDetector = null;
-  let fdInterval = null;
-  let stream = null;
+  let faceDetectionEnabled = (localStorage.getItem('faceDetectionEnabled') === 'true');
+  let detector = null; // native FaceDetector
+  let trackingLoaded = false;
+  let trackingTracker = null;
+  let animationId = null;
 
   // Initialize UI
-  function init(){
-    // Populate checkboxes
-    showClockCB.checked = !!settings.showClock;
-    showWeatherCB.checked = !!settings.showWeather;
-    showNotesCB.checked = !!settings.showNotes;
-    faceDetectCB.checked = !!settings.faceDetect;
+  faceToggle.checked = faceDetectionEnabled;
+  settingsToggle.addEventListener('click', () => {
+    const expanded = settingsToggle.getAttribute('aria-expanded') === 'true';
+    settingsToggle.setAttribute('aria-expanded', String(!expanded));
+    settingsPanel.hidden = !settingsPanel.hidden;
+  });
 
-    // Apply settings to UI
-    applySettings();
+  faceToggle.addEventListener('change', (e) => {
+    faceDetectionEnabled = e.target.checked;
+    localStorage.setItem('faceDetectionEnabled', String(faceDetectionEnabled));
+    updateDetectionRunning();
+  });
 
-    // Event listeners
-    settingsToggle.addEventListener('click', toggleSettingsPanel);
-    showClockCB.addEventListener('change', onSettingChange);
-    showWeatherCB.addEventListener('change', onSettingChange);
-    showNotesCB.addEventListener('change', onSettingChange);
-    faceDetectCB.addEventListener('change', onFaceDetectChange);
-
-    notesContent.addEventListener('input', debounce(saveNotes, 700));
-    notesContent.addEventListener('blur', saveNotes);
-
-    startClock();
-    if(settings.showWeather) startWeather();
-    if(settings.faceDetect) startFaceDetection();
-  }
-
-  function loadSettings(){
-    try{
-      const raw = localStorage.getItem(storageKey);
-      if(!raw) return Object.assign({}, DEFAULTS, { notes: localStorage.getItem('smartMirrorNotes') || '' });
-      const parsed = JSON.parse(raw);
-      return Object.assign({}, DEFAULTS, parsed, { notes: localStorage.getItem('smartMirrorNotes') || '' });
-    }catch(e){
-      console.warn('Failed to load settings', e);
-      return Object.assign({}, DEFAULTS, { notes: localStorage.getItem('smartMirrorNotes') || '' });
+  // Start camera
+  async function startCamera(){
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+      video.srcObject = stream;
+      await video.play();
+      resizeCanvas();
+    } catch (err) {
+      console.error('Could not start video stream', err);
     }
   }
 
-  function saveSettings(){
-    const toSave = { showClock: !!settings.showClock, showWeather: !!settings.showWeather, showNotes: !!settings.showNotes, faceDetect: !!settings.faceDetect };
-    localStorage.setItem(storageKey, JSON.stringify(toSave));
+  // Resize overlay to match video display size
+  function resizeCanvas(){
+    const rect = video.getBoundingClientRect();
+    overlay.width = Math.round(rect.width);
+    overlay.height = Math.round(rect.height);
+    // Ensure CSS sizing
+    overlay.style.width = rect.width + 'px';
+    overlay.style.height = rect.height + 'px';
   }
 
-  function applySettings(){
-    clockEl.style.display = settings.showClock ? '' : 'none';
-    weatherEl.style.display = settings.showWeather ? '' : 'none';
-    notesEl.style.display = settings.showNotes ? '' : 'none';
+  window.addEventListener('resize', () => {
+    if (video.videoWidth) resizeCanvas();
+  });
 
-    // Notes content
-    notesContent.textContent = settings.notes || notesContent.textContent;
+  video.addEventListener('loadedmetadata', () => {
+    resizeCanvas();
+    updateDetectionRunning();
+  });
 
-    // Face detection UI presence
-    if(settings.faceDetect){
-      faceArea.classList.remove('hidden');
-    }else{
-      faceArea.classList.add('hidden');
-    }
-
-    faceContent.textContent = settings.faceDetect ? 'Starting...' : 'Inactive';
+  // Drawing helpers
+  function clearOverlay(){
+    ctx.clearRect(0,0,overlay.width,overlay.height);
   }
 
-  function toggleSettingsPanel(){
-    const hidden = settingsPanel.classList.toggle('hidden');
-    settingsPanel.setAttribute('aria-hidden', hidden ? 'true' : 'false');
-    settingsToggle.setAttribute('aria-expanded', hidden ? 'false' : 'true');
-  }
+  function drawBoxes(boxes, color='#00FF00', labelPrefix='Face'){
+    ctx.lineWidth = Math.max(2, Math.round(overlay.width / 200));
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.font = Math.max(12, Math.round(overlay.width / 40)) + 'px sans-serif';
 
-  function onSettingChange(e){
-    const id = e.target.id;
-    settings[id] = e.target.checked;
-    saveSettings();
-    applySettings();
-
-    if(id === 'showWeather'){
-      if(settings.showWeather) startWeather(); else stopWeather();
-    }
-  }
-
-  function onFaceDetectChange(e){
-    settings.faceDetect = e.target.checked;
-    saveSettings();
-    applySettings();
-    if(settings.faceDetect) startFaceDetection(); else stopFaceDetection();
-  }
-
-  // Clock
-  function startClock(){
-    updateClock();
-    if(clockTimer) clearInterval(clockTimer);
-    clockTimer = setInterval(updateClock, 1000);
-  }
-
-  function updateClock(){
-    const now = new Date();
-    const hh = String(now.getHours()).padStart(2,'0');
-    const mm = String(now.getMinutes()).padStart(2,'0');
-    const ss = String(now.getSeconds()).padStart(2,'0');
-    clockTime.textContent = `${hh}:${mm}:${ss}`;
-  }
-
-  // Weather (uses open-meteo without API key)
-  async function startWeather(){
-    await fetchAndRenderWeather();
-    if(weatherTimer) clearInterval(weatherTimer);
-    weatherTimer = setInterval(fetchAndRenderWeather, 10 * 60 * 1000); // every 10min
-  }
-  function stopWeather(){
-    if(weatherTimer) { clearInterval(weatherTimer); weatherTimer = null; }
-  }
-
-  async function fetchAndRenderWeather(){
-    weatherContent.textContent = 'Loading...';
-    try{
-      const coords = await getCoordinates();
-      const lat = coords.latitude.toFixed(4);
-      const lon = coords.longitude.toFixed(4);
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&temperature_unit=celsius`;
-      const res = await fetch(url);
-      if(!res.ok) throw new Error('Weather API error');
-      const data = await res.json();
-      if(data && data.current_weather){
-        const t = data.current_weather.temperature;
-        const w = data.current_weather.weathercode;
-        weatherContent.textContent = `${t}°C (code ${w})`;
-      }else{
-        weatherContent.textContent = 'Weather data unavailable';
-      }
-    }catch(err){
-      console.warn('Weather failed', err);
-      weatherContent.textContent = 'Weather unavailable';
-    }
-  }
-
-  function getCoordinates(){
-    return new Promise((resolve)=>{
-      if(navigator.geolocation){
-        const timeout = setTimeout(()=>{
-          // fallback coords (New York) if geolocation times out
-          resolve({latitude:40.7128, longitude:-74.0060});
-        },5000);
-        navigator.geolocation.getCurrentPosition((pos)=>{
-          clearTimeout(timeout);
-          resolve(pos.coords);
-        },()=>{
-          clearTimeout(timeout);
-          resolve({latitude:40.7128, longitude:-74.0060});
-        },{maximumAge:600000, timeout:5000});
-      }else{
-        resolve({latitude:40.7128, longitude:-74.0060});
-      }
+    boxes.forEach((b, i) => {
+      // b should be {x,y,width,height} in video pixel coordinates
+      ctx.beginPath();
+      ctx.rect(b.x, b.y, b.width, b.height);
+      ctx.stroke();
+      const label = labelPrefix + ' #' + (i+1);
+      const textWidth = ctx.measureText(label).width;
+      const padding = 4;
+      const textX = b.x;
+      const textY = Math.max(12, b.y - 6);
+      ctx.fillRect(textX - 1, textY - parseInt(ctx.font,10), textWidth + padding*2, parseInt(ctx.font,10) + 6);
+      ctx.fillStyle = '#000';
+      ctx.fillText(label, textX + padding, textY + parseInt(ctx.font,10) - 2);
+      ctx.fillStyle = color;
     });
   }
 
-  // Notes
-  function saveNotes(){
-    settings.notes = notesContent.textContent || '';
-    localStorage.setItem('smartMirrorNotes', settings.notes);
-  }
-
-  // Face detection
-  async function startFaceDetection(){
-    faceContent.textContent = 'Initializing...';
-
-    // Try to get camera access
-    try{
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
-      video.srcObject = stream;
-      await video.play();
-    }catch(err){
-      console.warn('Camera start failed', err);
-      faceContent.textContent = 'Camera access denied/unavailable';
+  // Native FaceDetector loop
+  async function nativeLoop(){
+    if (!faceDetectionEnabled) return;
+    if (!detector) return;
+    try {
+      const faces = await detector.detect(video);
+      clearOverlay();
+      if (faces && faces.length) {
+        // faces[i].boundingBox gives DOMRect-like {x,y,width,height} in pixels relative to video
+        // Need to scale bounding boxes from intrinsic video size to displayed size.
+        const sx = overlay.width / video.videoWidth;
+        const sy = overlay.height / video.videoHeight;
+        const boxes = faces.map(f => {
+          return {
+            x: Math.round(f.boundingBox.x * sx),
+            y: Math.round(f.boundingBox.y * sy),
+            width: Math.round(f.boundingBox.width * sx),
+            height: Math.round(f.boundingBox.height * sy)
+          };
+        });
+        drawBoxes(boxes);
+      }
+    } catch (err) {
+      console.warn('FaceDetector.detect failed, falling back to tracking.js', err);
+      // If native detection fails at runtime, attempt to load tracking fallback
+      startTrackingFallback();
       return;
     }
-
-    // Setup canvas size
-    overlay.width = video.videoWidth || video.clientWidth || 320;
-    overlay.height = video.videoHeight || video.clientHeight || 240;
-
-    // Use native FaceDetector API if available
-    if('FaceDetector' in window){
-      try{
-        fdDetector = new FaceDetector({ fastMode: true, maxDetectedFaces: 5 });
-        runFaceDetector();
-        faceContent.textContent = 'Detecting faces...';
-        return;
-      }catch(e){
-        console.warn('FaceDetector init failed', e);
-      }
-    }
-
-    // Fallback: no detection available
-    faceContent.textContent = 'Face detection not supported in this browser.';
+    animationId = requestAnimationFrame(nativeLoop);
   }
 
-  async function runFaceDetector(){
-    const ctx = overlay.getContext('2d');
-    if(!ctx) return;
-
-    const detect = async ()=>{
-      try{
-        overlay.width = video.videoWidth;
-        overlay.height = video.videoHeight;
-        ctx.clearRect(0,0,overlay.width,overlay.height);
-        const faces = await fdDetector.detect(video);
-        if(faces && faces.length){
-          faceContent.textContent = `${faces.length} face(s) detected`;
-          ctx.strokeStyle = '#00FF00';
-          ctx.lineWidth = 2;
-          faces.forEach(f=>{
-            const box = f.boundingBox;
-            ctx.strokeRect(box.x, box.y, box.width, box.height);
-          });
-        }else{
-          faceContent.textContent = 'No faces';
-        }
-      }catch(err){
-        console.warn('Face detect error', err);
-        faceContent.textContent = 'Detection error';
-      }
+  // Load tracking.js dynamically and start tracker
+  function startTrackingFallback(){
+    if (trackingLoaded) {
+      startTracking();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/tracking@1.1.3/build/tracking-min.js';
+    script.onload = () => {
+      const script2 = document.createElement('script');
+      script2.src = 'https://cdn.jsdelivr.net/npm/tracking@1.1.3/build/data/face-min.js';
+      script2.onload = () => {
+        trackingLoaded = true;
+        startTracking();
+      };
+      script2.onerror = (e) => console.error('Failed to load tracking face data', e);
+      document.head.appendChild(script2);
     };
-
-    fdInterval = setInterval(detect, 200); // run ~5x per second
+    script.onerror = (e) => console.error('Failed to load tracking.js', e);
+    document.head.appendChild(script);
   }
 
-  function stopFaceDetection(){
-    faceContent.textContent = 'Inactive';
-    if(fdInterval){ clearInterval(fdInterval); fdInterval = null; }
-    fdDetector = null;
-    // stop camera
-    if(stream){
-      stream.getTracks().forEach(t=>t.stop());
-      stream = null;
+  function startTracking(){
+    if (!tracking) {
+      console.error('tracking.js not available');
+      return;
     }
-    if(video){ try{ video.pause(); video.srcObject = null; }catch(e){}
-    }
-    // clear overlay
-    if(overlay && overlay.getContext){
-      const ctx = overlay.getContext('2d'); if(ctx) ctx.clearRect(0,0,overlay.width,overlay.height);
+    stopAnyDetectionLoops();
+    clearOverlay();
+
+    // Create tracker
+    try {
+      trackingTracker = new tracking.ObjectTracker('face');
+      trackingTracker.setInitialScale(4);
+      trackingTracker.setStepSize(1.7);
+      trackingTracker.setEdgesDensity(0.1);
+
+      trackingTracker.on('track', function(event) {
+        clearOverlay();
+        if (event.data && event.data.length) {
+          const boxes = event.data.map(item => {
+            // tracking.js returns x,y,width,height in video pixel coordinates relative to the tracked element
+            // Need to scale from video intrinsic size to displayed size
+            const sx = overlay.width / video.videoWidth;
+            const sy = overlay.height / video.videoHeight;
+            return {
+              x: Math.round(item.x * sx),
+              y: Math.round(item.y * sy),
+              width: Math.round(item.width * sx),
+              height: Math.round(item.height * sy)
+            };
+          });
+          drawBoxes(boxes, '#FF8C00', 'Face');
+        }
+      });
+
+      // Start tracking on the video element. tracking.track accepts CSS selector or element ID.
+      tracking.track('#video', trackingTracker);
+    } catch (err) {
+      console.error('Failed to start tracking.js tracker', err);
     }
   }
 
-  // Utility: debounce
-  function debounce(fn, wait){
-    let t = null; return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), wait); };
+  function stopTracking(){
+    try {
+      if (trackingTracker && tracking) {
+        trackingTracker.removeAllListeners && trackingTracker.removeAllListeners('track');
+        // tracking.js doesn't provide a clean stop API for trackers started via tracking.track
+        // but we can clear the interval listeners by tracking.stop() if present
+        if (typeof tracking.stop === 'function') {
+          try { tracking.stop(); } catch(e){}
+        }
+      }
+    } catch(e){ /* ignore */ }
+    trackingTracker = null;
   }
 
-  // Start
-  init();
+  function stopAnyDetectionLoops(){
+    if (animationId) {
+      cancelAnimationFrame(animationId);
+      animationId = null;
+    }
+    stopTracking();
+  }
+
+  // Start appropriate detection depending on availability
+  function updateDetectionRunning(){
+    stopAnyDetectionLoops();
+    clearOverlay();
+    if (!faceDetectionEnabled) return;
+
+    // Prefer native FaceDetector
+    if ('FaceDetector' in window) {
+      try {
+        detector = new FaceDetector({ fastMode: true, maxDetectedFaces: 5 });
+        nativeLoop();
+        return;
+      } catch (err) {
+        console.warn('Failed to construct native FaceDetector', err);
+        detector = null;
+      }
+    }
+
+    // Fallback to tracking.js
+    startTrackingFallback();
+  }
+
+  // Start things
+  startCamera();
+
+  // Expose for debugging
+  window.__smartMirror = window.__smartMirror || {};
+  window.__smartMirror.startFaceDetection = () => { faceToggle.checked = true; faceToggle.dispatchEvent(new Event('change')); };
+  window.__smartMirror.stopFaceDetection = () => { faceToggle.checked = false; faceToggle.dispatchEvent(new Event('change')); };
+
 })();
