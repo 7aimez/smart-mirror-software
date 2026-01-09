@@ -14,9 +14,11 @@ const showWeatherCB = document.getElementById('showWeather');
 const showNotesCB = document.getElementById('showNotes');
 const toggleMirrorBtn = document.getElementById('toggleMirror');
 const toggleCameraBtn = document.getElementById('toggleCamera');
+const switchFacingBtn = document.getElementById('switchFacing');
 
 let stream = null;
 let mirrorFlipped = true;
+let currentFacing = 'environment'; // 'environment' (back) or 'user' (front)
 
 function showMessage(text, ms=3000){
   msgEl.textContent = text;
@@ -25,16 +27,22 @@ function showMessage(text, ms=3000){
 }
 
 // --- Camera init ---
-async function startCamera(){
-  if (stream) return;
+// startCamera will try to open a camera with the requested facingMode.
+// If a previous stream exists, stop it first.
+async function startCamera(facing = currentFacing){
+  // if already using a stream, stop it so the new one can start
+  if (stream) stopCamera();
   try{
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+    // Use facingMode hint; browsers will pick the best available camera.
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: false });
     video.srcObject = stream;
     video.play().catch(()=>{ /* auto-play policies */});
-    showMessage('Camera enabled');
+    showMessage(`Camera enabled (${facing === 'user' ? 'front' : 'back'})`);
   }catch(err){
     console.warn('Camera failed', err);
     showMessage('Camera access denied or not available');
+    stream = null;
+    video.srcObject = null;
   }
 }
 
@@ -100,6 +108,7 @@ function loadSettings(){
   showWeatherCB.checked = s.showWeather !== false;
   showNotesCB.checked = s.showNotes !== false;
   mirrorFlipped = s.mirrorFlipped !== false;
+  currentFacing = s.currentFacing || currentFacing;
   applySettings();
 }
 function saveSettings(){
@@ -107,7 +116,8 @@ function saveSettings(){
     showClock: showClockCB.checked,
     showWeather: showWeatherCB.checked,
     showNotes: showNotesCB.checked,
-    mirrorFlipped
+    mirrorFlipped,
+    currentFacing
   };
   localStorage.setItem('mirror.settings', JSON.stringify(s));
 }
@@ -117,6 +127,8 @@ function applySettings(){
   document.getElementById('top-right').style.display = showWeatherCB.checked ? 'block' : 'none';
   document.getElementById('bottom-left').style.display = showNotesCB.checked ? 'block' : 'none';
   video.style.transform = mirrorFlipped ? 'scaleX(-1)' : 'scaleX(1)';
+  // update switch button label
+  switchFacingBtn.textContent = (currentFacing === 'user') ? 'Front' : 'Back';
   saveSettings();
 }
 
@@ -141,6 +153,14 @@ toggleCameraBtn.addEventListener('click', ()=>{
   else startCamera();
 });
 
+// switch facing mode (front/back)
+switchFacingBtn.addEventListener('click', async ()=>{
+  currentFacing = currentFacing === 'user' ? 'environment' : 'user';
+  applySettings();
+  // restart camera with the new facing mode if it's running (or start it)
+  await startCamera(currentFacing);
+});
+
 // keyboard shortcuts
 window.addEventListener('keydown', (e)=>{
   if (e.key === 's') settingsPanel.classList.toggle('hidden');
@@ -151,12 +171,17 @@ window.addEventListener('keydown', (e)=>{
   if (e.key === 'c') {
     if (stream) stopCamera(); else startCamera();
   }
+  if (e.key === 'f') { // 'f' for facing toggle
+    currentFacing = currentFacing === 'user' ? 'environment' : 'user';
+    applySettings();
+    startCamera(currentFacing);
+  }
 });
 
 // init
 loadSettings();
 fetchWeather();
-startCamera(); // try start camera immediately; user can stop with controls
+startCamera(currentFacing); // try start camera immediately with saved/default facing
 
 // optional: refresh weather every 15 minutes
 setInterval(fetchWeather, 15*60*1000);
