@@ -1,4 +1,3 @@
-````markdown
 # Software Smart Mirror (HTML + Camera Background)
 
 This is a small local web app that simulates a smart mirror UI. The camera stream is used as the mirrored background; widgets are overlaid in the foreground.
@@ -35,4 +34,3 @@ Troubleshooting
 - Some laptops have only one camera; the `facingMode: "environment"` hint may not change anything — the browser picks what's available.
 
 Enjoy — tell me which extra widgets or behaviors you'd like and I can add them or make a step-by-step tutorial.
-````
