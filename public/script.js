@@ -13,6 +13,10 @@
   let trackingLoaded = false;
   let trackingTracker = null;
   let animationId = null;
+  let isProcessing = false;
+  let lastBoxes = [];
+  let frameSkipCounter = 0;
+  const FRAME_SKIP = 2; // Process every 3rd frame for better performance
 
   // Initialize UI
   faceToggle.checked = faceDetectionEnabled;
@@ -31,7 +35,14 @@
   // Start camera
   async function startCamera(){
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'user',
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        }, 
+        audio: false 
+      });
       video.srcObject = stream;
       await video.play();
       resizeCanvas();
@@ -61,50 +72,94 @@
 
   // Drawing helpers
   function clearOverlay(){
-    ctx.clearRect(0,0,overlay.width,overlay.height);
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
   }
 
-  function drawBoxes(boxes, color='#00FF00'){
+  function drawBoxes(boxes){
+    if (boxes.length === 0) {
+      clearOverlay();
+      return;
+    }
+    
+    // Clear only the area that might have previous boxes
+    if (lastBoxes.length > 0) {
+      lastBoxes.forEach(box => {
+        // Clear a slightly larger area to ensure no artifacts
+        ctx.clearRect(
+          Math.max(0, box.x - 5),
+          Math.max(0, box.y - 5),
+          box.width + 10,
+          box.height + 10
+        );
+      });
+    }
+    
+    // Draw new boxes
     ctx.lineWidth = Math.max(2, Math.round(overlay.width / 200));
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
-
+    ctx.strokeStyle = '#00FF00';
+    ctx.fillStyle = 'rgba(0, 255, 0, 0.05)'; // Light fill for better visibility
+    
     boxes.forEach((b, i) => {
-      // b should be {x,y,width,height} in video pixel coordinates
+      // Draw filled rectangle with border
       ctx.beginPath();
       ctx.rect(b.x, b.y, b.width, b.height);
+      ctx.fill();
       ctx.stroke();
     });
+    
+    lastBoxes = boxes;
   }
 
-  // Native FaceDetector loop
+  // Native FaceDetector loop with debouncing
   async function nativeLoop(){
-    if (!faceDetectionEnabled) return;
-    if (!detector) return;
+    if (!faceDetectionEnabled || !detector || isProcessing) {
+      animationId = requestAnimationFrame(nativeLoop);
+      return;
+    }
+    
+    frameSkipCounter = (frameSkipCounter + 1) % (FRAME_SKIP + 1);
+    if (frameSkipCounter !== 0) {
+      animationId = requestAnimationFrame(nativeLoop);
+      return;
+    }
+    
+    isProcessing = true;
+    
     try {
       const faces = await detector.detect(video);
-      clearOverlay();
-      if (faces && faces.length) {
-        // faces[i].boundingBox gives DOMRect-like {x,y,width,height} in pixels relative to video
-        // Need to scale bounding boxes from intrinsic video size to displayed size.
-        const sx = overlay.width / video.videoWidth;
-        const sy = overlay.height / video.videoHeight;
-        const boxes = faces.map(f => {
-          return {
-            x: Math.round(f.boundingBox.x * sx),
-            y: Math.round(f.boundingBox.y * sy),
-            width: Math.round(f.boundingBox.width * sx),
-            height: Math.round(f.boundingBox.height * sy)
-          };
-        });
-        drawBoxes(boxes);
+      if (faceDetectionEnabled) { // Check again in case disabled during async operation
+        if (faces && faces.length) {
+          const sx = overlay.width / video.videoWidth;
+          const sy = overlay.height / video.videoHeight;
+          const boxes = faces.map(f => {
+            const x = Math.round(f.boundingBox.x * sx);
+            const y = Math.round(f.boundingBox.y * sy);
+            const width = Math.round(f.boundingBox.width * sx);
+            const height = Math.round(f.boundingBox.height * sy);
+            
+            // Add some margin around the detected face
+            const margin = Math.min(width, height) * 0.1;
+            return {
+              x: Math.max(0, x - margin),
+              y: Math.max(0, y - margin),
+              width: width + margin * 2,
+              height: height + margin * 2
+            };
+          });
+          drawBoxes(boxes);
+        } else {
+          drawBoxes([]);
+        }
       }
     } catch (err) {
       console.warn('FaceDetector.detect failed, falling back to tracking.js', err);
       // If native detection fails at runtime, attempt to load tracking fallback
       startTrackingFallback();
+      isProcessing = false;
       return;
     }
+    
+    isProcessing = false;
     animationId = requestAnimationFrame(nativeLoop);
   }
 
@@ -138,34 +193,63 @@
     stopAnyDetectionLoops();
     clearOverlay();
 
-    // Create tracker
+    // Create tracker with optimized settings
     try {
       trackingTracker = new tracking.ObjectTracker('face');
       trackingTracker.setInitialScale(4);
-      trackingTracker.setStepSize(1.7);
-      trackingTracker.setEdgesDensity(0.1);
+      trackingTracker.setStepSize(2); // Increased step size for better performance
+      trackingTracker.setEdgesDensity(0.07); // Reduced for better performance
+
+      // Use requestAnimationFrame to throttle tracking.js updates
+      let lastTime = 0;
+      const trackingInterval = 100; // ms between updates
+      
+      const throttledTrack = (currentTime) => {
+        if (!faceDetectionEnabled || !trackingTracker) return;
+        
+        if (currentTime - lastTime >= trackingInterval) {
+          try {
+            tracking.track('#video', trackingTracker);
+            lastTime = currentTime;
+          } catch(e) {
+            console.warn('Tracking error:', e);
+          }
+        }
+        
+        if (faceDetectionEnabled) {
+          requestAnimationFrame(throttledTrack);
+        }
+      };
 
       trackingTracker.on('track', function(event) {
-        clearOverlay();
+        if (!faceDetectionEnabled) return;
+        
         if (event.data && event.data.length) {
+          const sx = overlay.width / video.videoWidth;
+          const sy = overlay.height / video.videoHeight;
           const boxes = event.data.map(item => {
-            // tracking.js returns x,y,width,height in video pixel coordinates relative to the tracked element
-            // Need to scale from video intrinsic size to displayed size
-            const sx = overlay.width / video.videoWidth;
-            const sy = overlay.height / video.videoHeight;
+            const x = Math.round(item.x * sx);
+            const y = Math.round(item.y * sy);
+            const width = Math.round(item.width * sx);
+            const height = Math.round(item.height * sy);
+            
+            // Add some margin around the detected face
+            const margin = Math.min(width, height) * 0.1;
             return {
-              x: Math.round(item.x * sx),
-              y: Math.round(item.y * sy),
-              width: Math.round(item.width * sx),
-              height: Math.round(item.height * sy)
+              x: Math.max(0, x - margin),
+              y: Math.max(0, y - margin),
+              width: width + margin * 2,
+              height: height + margin * 2
             };
           });
-          drawBoxes(boxes, '#FF8C00');
+          drawBoxes(boxes);
+        } else {
+          drawBoxes([]);
         }
       });
 
-      // Start tracking on the video element. tracking.track accepts CSS selector or element ID.
-      tracking.track('#video', trackingTracker);
+      // Start the throttled tracking loop
+      requestAnimationFrame(throttledTrack);
     } catch (err) {
       console.error('Failed to start tracking.js tracker', err);
     }
@@ -175,8 +259,6 @@
     try {
       if (trackingTracker && tracking) {
         trackingTracker.removeAllListeners && trackingTracker.removeAllListeners('track');
-        // tracking.js doesn't provide a clean stop API for trackers started via tracking.track
-        // but we can clear the interval listeners by tracking.stop() if present
         if (typeof tracking.stop === 'function') {
           try { tracking.stop(); } catch(e){}
         }
@@ -191,6 +273,9 @@
       animationId = null;
     }
     stopTracking();
+    isProcessing = false;
+    lastBoxes = [];
+    clearOverlay();
   }
 
   // Start appropriate detection depending on availability
@@ -202,7 +287,10 @@
     // Prefer native FaceDetector
     if ('FaceDetector' in window) {
       try {
-        detector = new FaceDetector({ fastMode: true, maxDetectedFaces: 5 });
+        detector = new FaceDetector({ 
+          fastMode: true, 
+          maxDetectedFaces: 2 // Reduced for better performance
+        });
         nativeLoop();
         return;
       } catch (err) {
@@ -220,7 +308,13 @@
 
   // Expose for debugging
   window.__smartMirror = window.__smartMirror || {};
-  window.__smartMirror.startFaceDetection = () => { faceToggle.checked = true; faceToggle.dispatchEvent(new Event('change')); };
-  window.__smartMirror.stopFaceDetection = () => { faceToggle.checked = false; faceToggle.dispatchEvent(new Event('change')); };
+  window.__smartMirror.startFaceDetection = () => { 
+    faceToggle.checked = true; 
+    faceToggle.dispatchEvent(new Event('change')); 
+  };
+  window.__smartMirror.stopFaceDetection = () => { 
+    faceToggle.checked = false; 
+    faceToggle.dispatchEvent(new Event('change')); 
+  };
 
 })();
