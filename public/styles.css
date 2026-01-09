@@ -1,65 +1,19 @@
-/* Fullscreen mirror layout */
-html, body {
-  height: 100%;
-  margin: 0;
-  background: black;
-  overflow: hidden;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  color: #fff;
-}
-
-#video {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  object-fit: cover;
-  /* Mirror the video for a mirror-like experience */
-  transform: scaleX(-1);
-  -webkit-transform: scaleX(-1);
-}
-
-#overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  pointer-events: none; /* allow clicks to pass through */
-}
-
-#settings {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  background: rgba(0, 0, 0, 0.45);
-  padding: 8px 12px;
-  border-radius: 8px;
-  z-index: 9999;
-  backdrop-filter: blur(6px);
-}
-
-.setting-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-label {
-  font-size: 14px;
-}
-
-input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-}
-
-@media (max-width: 600px) {
-  #settings { top: 8px; padding: 6px 8px; }
-  label { font-size: 13px; }
-}
+* { box-sizing: border-box; }
+html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial}
+#app { display: grid; grid-template-rows: auto 1fr; height:100vh; background:#000;color:#fff;padding:12px }
+header{display:flex;justify-content:flex-end}
+#settingsToggle{background:transparent;border:1px solid #444;color:#fff;padding:6px 8px;border-radius:6px;cursor:pointer}
+main{display:flex;gap:16px;align-items:flex-start}
+#widgets{display:flex;gap:16px;flex:1}
+.widget{background:rgba(255,255,255,0.04);border-radius:8px;padding:12px;min-width:180px}
+.widget .label{font-size:12px;opacity:0.8}
+.widget .value{font-size:20px;margin-top:8px}
+#notesContent{min-height:80px;outline:none}
+#settingsPanel{position:fixed;right:12px;top:56px;background:#111;border:1px solid #333;padding:12px;border-radius:8px;min-width:220px;z-index:40}
+#settingsPanel.hidden{display:none}
+#faceArea{position:relative;width:320px;height:240px;border-radius:8px;overflow:hidden}
+#faceArea.hidden{display:none}
+#cameraVideo{width:100%;height:100%;object-fit:cover}
+#overlay{position:absolute;left:0;top:0;width:100%;height:100%}
+.hidden{display:none}
+@media (max-width:700px){main{flex-direction:column}#faceArea{width:100%;height:200px}}
