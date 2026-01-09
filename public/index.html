@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Software Smart Mirror</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <video id="camera" autoplay muted playsinline></video>
+
+  <div id="ui">
+    <div id="top-left" class="widget">
+      <div id="time" class="time">--:--</div>
+      <div id="date" class="date">Loading date…</div>
+    </div>
+
+    <div id="top-right" class="widget">
+      <div id="weather" class="weather">Loading weather…</div>
+    </div>
+
+    <div id="bottom-left" class="widget">
+      <textarea id="notes" placeholder="Sticky notes… (saved locally)"></textarea>
+    </div>
+
+    <div id="controls" title="Press 's' to toggle settings">
+      <button id="toggleMirror">Flip</button>
+      <button id="toggleCamera">Camera</button>
+      <button id="openSettings">⚙</button>
+    </div>
+
+    <div id="settings" class="panel hidden">
+      <h3>Settings</h3>
+      <label><input type="checkbox" id="showClock" checked /> Show clock</label><br/>
+      <label><input type="checkbox" id="showWeather" checked /> Show weather</label><br/>
+      <label><input type="checkbox" id="showNotes" checked /> Show notes</label><br/>
+      <button id="closeSettings">Close</button>
+    </div>
+
+    <div id="message" class="hidden"></div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
