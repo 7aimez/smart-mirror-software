@@ -4,54 +4,39 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Smart Mirror</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/public/styles.css">
 </head>
 <body>
   <div id="app">
     <header>
-      <button id="settingsToggle" aria-expanded="false">Settings ⚙️</button>
+      <h1>Smart Mirror</h1>
+      <button id="settings-toggle" aria-expanded="false">⚙️ Settings</button>
     </header>
 
     <main>
-      <section id="widgets">
-        <div id="clock" class="widget">
-          <div class="label">Clock</div>
-          <div id="clockTime" class="value">--:--:--</div>
-        </div>
+      <div id="camera-container">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="overlay" aria-hidden="true"></canvas>
+      </div>
 
-        <div id="weather" class="widget">
-          <div class="label">Weather</div>
-          <div id="weatherContent" class="value">Loading...</div>
-        </div>
-
-        <div id="notes" class="widget">
-          <div class="label">Notes</div>
-          <div id="notesContent" class="value" contenteditable="true" aria-label="Notes">Write notes here...</div>
-        </div>
-
-        <div id="faceStatus" class="widget">
-          <div class="label">Face Detection</div>
-          <div id="faceContent" class="value">Inactive</div>
-        </div>
+      <section id="settings" hidden>
+        <h2>Settings</h2>
+        <label>
+          <input type="checkbox" id="face-toggle">
+          Enable face detection
+        </label>
+        <p class="note">Uses the native FaceDetector if available; falls back to tracking.js.</p>
       </section>
 
-      <section id="faceArea" class="hidden">
-        <video id="cameraVideo" autoplay playsinline muted></video>
-        <canvas id="overlay"></canvas>
-      </section>
+      <!-- other mirror widgets could go here -->
     </main>
 
-    <aside id="settingsPanel" class="hidden" aria-hidden="true">
-      <h2>Settings</h2>
-      <form id="settingsForm">
-        <label><input type="checkbox" id="showClock" name="showClock"> Show Clock</label>
-        <label><input type="checkbox" id="showWeather" name="showWeather"> Show Weather</label>
-        <label><input type="checkbox" id="showNotes" name="showNotes"> Show Notes</label>
-        <label><input type="checkbox" id="faceDetect" name="faceDetect"> Enable Face Detection</label>
-      </form>
-    </aside>
+    <footer>
+      <small>Smart Mirror &copy; </small>
+    </footer>
   </div>
 
-  <script src="script.js"></script>
+  <!-- tracking.js fallback (loaded only if needed) -->
+  <script src="/public/script.js"></script>
 </body>
 </html>
