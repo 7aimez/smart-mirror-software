@@ -3,44 +3,40 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Software Smart Mirror</title>
-  <link rel="stylesheet" href="styles.css" />
+  <title>Smart Mirror</title>
+  <link rel="stylesheet" href="/public/styles.css">
 </head>
 <body>
-  <video id="camera" autoplay muted playsinline></video>
+  <div id="app">
+    <header>
+      <h1>Smart Mirror</h1>
+      <button id="settings-toggle" aria-expanded="false">⚙️ Settings</button>
+    </header>
 
-  <div id="ui">
-    <div id="top-left" class="widget">
-      <div id="time" class="time">--:--</div>
-      <div id="date" class="date">Loading date…</div>
-    </div>
+    <main>
+      <div id="camera-container">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="overlay" aria-hidden="true"></canvas>
+      </div>
 
-    <div id="top-right" class="widget">
-      <div id="weather" class="weather">Loading weather…</div>
-    </div>
+      <section id="settings" hidden>
+        <h2>Settings</h2>
+        <label>
+          <input type="checkbox" id="face-toggle">
+          Enable face detection
+        </label>
+        <p class="note">Uses the native FaceDetector if available; falls back to tracking.js.</p>
+      </section>
 
-    <div id="bottom-left" class="widget">
-      <textarea id="notes" placeholder="Sticky notes… (saved locally)"></textarea>
-    </div>
+      <!-- other mirror widgets could go here -->
+    </main>
 
-    <div id="controls" title="Press 's' to toggle settings">
-      <button id="toggleMirror">Flip</button>
-      <button id="toggleCamera">Camera</button>
-      <button id="switchFacing">Front</button>
-      <button id="openSettings">⚙</button>
-    </div>
-
-    <div id="settings" class="panel hidden">
-      <h3>Settings</h3>
-      <label><input type="checkbox" id="showClock" checked /> Show clock</label><br/>
-      <label><input type="checkbox" id="showWeather" checked /> Show weather</label><br/>
-      <label><input type="checkbox" id="showNotes" checked /> Show notes</label><br/>
-      <button id="closeSettings">Close</button>
-    </div>
-
-    <div id="message" class="hidden"></div>
+    <footer>
+      <small>Smart Mirror &copy; </small>
+    </footer>
   </div>
 
-  <script src="script.js"></script>
+  <!-- tracking.js fallback (loaded only if needed) -->
+  <script src="/public/script.js"></script>
 </body>
 </html>

@@ -1,187 +1,236 @@
-// Software Smart Mirror - main script
-const video = document.getElementById('camera');
-const timeEl = document.getElementById('time');
-const dateEl = document.getElementById('date');
-const weatherEl = document.getElementById('weather');
-const notesEl = document.getElementById('notes');
-const msgEl = document.getElementById('message');
+(function(){
+  // DOM refs
+  const video = document.getElementById('video');
+  const overlay = document.getElementById('overlay');
+  const ctx = overlay.getContext('2d');
+  const settingsToggle = document.getElementById('settings-toggle');
+  const settingsPanel = document.getElementById('settings');
+  const faceToggle = document.getElementById('face-toggle');
 
-const settingsPanel = document.getElementById('settings');
-const openSettingsBtn = document.getElementById('openSettings');
-const closeSettingsBtn = document.getElementById('closeSettings');
-const showClockCB = document.getElementById('showClock');
-const showWeatherCB = document.getElementById('showWeather');
-const showNotesCB = document.getElementById('showNotes');
-const toggleMirrorBtn = document.getElementById('toggleMirror');
-const toggleCameraBtn = document.getElementById('toggleCamera');
-const switchFacingBtn = document.getElementById('switchFacing');
+  // State
+  let faceDetectionEnabled = (localStorage.getItem('faceDetectionEnabled') === 'true');
+  let detector = null; // native FaceDetector
+  let trackingLoaded = false;
+  let trackingTracker = null;
+  let animationId = null;
 
-let stream = null;
-let mirrorFlipped = true;
-let currentFacing = 'environment'; // 'environment' (back) or 'user' (front)
+  // Initialize UI
+  faceToggle.checked = faceDetectionEnabled;
+  settingsToggle.addEventListener('click', () => {
+    const expanded = settingsToggle.getAttribute('aria-expanded') === 'true';
+    settingsToggle.setAttribute('aria-expanded', String(!expanded));
+    settingsPanel.hidden = !settingsPanel.hidden;
+  });
 
-function showMessage(text, ms=3000){
-  msgEl.textContent = text;
-  msgEl.classList.remove('hidden');
-  setTimeout(()=> msgEl.classList.add('hidden'), ms);
-}
+  faceToggle.addEventListener('change', (e) => {
+    faceDetectionEnabled = e.target.checked;
+    localStorage.setItem('faceDetectionEnabled', String(faceDetectionEnabled));
+    updateDetectionRunning();
+  });
 
-// --- Camera init ---
-// startCamera will try to open a camera with the requested facingMode.
-// If a previous stream exists, stop it first.
-async function startCamera(facing = currentFacing){
-  // if already using a stream, stop it so the new one can start
-  if (stream) stopCamera();
-  try{
-    // Use facingMode hint; browsers will pick the best available camera.
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: false });
-    video.srcObject = stream;
-    video.play().catch(()=>{ /* auto-play policies */});
-    showMessage(`Camera enabled (${facing === 'user' ? 'front' : 'back'})`);
-  }catch(err){
-    console.warn('Camera failed', err);
-    showMessage('Camera access denied or not available');
-    stream = null;
-    video.srcObject = null;
-  }
-}
-
-function stopCamera(){
-  if (!stream) return;
-  stream.getTracks().forEach(t=>t.stop());
-  stream = null;
-  video.srcObject = null;
-  showMessage('Camera stopped');
-}
-
-// --- Clock and date ---
-function updateClock(){
-  const now = new Date();
-  const hh = now.getHours().toString().padStart(2,'0');
-  const mm = now.getMinutes().toString().padStart(2,'0');
-  timeEl.textContent = `${hh}:${mm}`;
-  dateEl.textContent = now.toLocaleDateString(undefined, { weekday:'long', month:'short', day:'numeric' });
-}
-// start clock
-updateClock();
-setInterval(updateClock, 1000);
-
-// --- Weather (Open-Meteo, no key) ---
-async function fetchWeather(){
-  if (!navigator.geolocation) {
-    weatherEl.textContent = 'Location unavailable';
-    return;
-  }
-  weatherEl.textContent = 'Finding location…';
-  navigator.geolocation.getCurrentPosition(async pos=>{
-    const lat = pos.coords.latitude;
-    const lon = pos.coords.longitude;
-    try{
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`;
-      const res = await fetch(url);
-      const json = await res.json();
-      const cw = json.current_weather;
-      if(!cw) { weatherEl.textContent = 'Weather unavailable'; return; }
-      // simple weather display
-      weatherEl.innerHTML = `${Math.round(cw.temperature)}°C • ${windIcon(cw.windspeed)} ${Math.round(cw.windspeed)} km/h`;
-    }catch(err){
-      console.warn(err);
-      weatherEl.textContent = 'Weather fetch failed';
+  // Start camera
+  async function startCamera(){
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+      video.srcObject = stream;
+      await video.play();
+      resizeCanvas();
+    } catch (err) {
+      console.error('Could not start video stream', err);
     }
-  }, err=>{
-    console.warn(err);
-    weatherEl.textContent = 'Location permission required';
-  }, {timeout:8000});
-}
-
-// tiny mapping: simple wind icon by speed (could map weathercode too)
-function windIcon(speed){
-  if (speed < 2) return '🌬️';
-  if (speed < 10) return '💨';
-  return '🌪️';
-}
-
-// --- Settings persistence ---
-function loadSettings(){
-  const s = JSON.parse(localStorage.getItem('mirror.settings') || '{}');
-  showClockCB.checked = s.showClock !== false;
-  showWeatherCB.checked = s.showWeather !== false;
-  showNotesCB.checked = s.showNotes !== false;
-  mirrorFlipped = s.mirrorFlipped !== false;
-  currentFacing = s.currentFacing || currentFacing;
-  applySettings();
-}
-function saveSettings(){
-  const s = {
-    showClock: showClockCB.checked,
-    showWeather: showWeatherCB.checked,
-    showNotes: showNotesCB.checked,
-    mirrorFlipped,
-    currentFacing
-  };
-  localStorage.setItem('mirror.settings', JSON.stringify(s));
-}
-
-function applySettings(){
-  document.getElementById('top-left').style.display = showClockCB.checked ? 'block' : 'none';
-  document.getElementById('top-right').style.display = showWeatherCB.checked ? 'block' : 'none';
-  document.getElementById('bottom-left').style.display = showNotesCB.checked ? 'block' : 'none';
-  video.style.transform = mirrorFlipped ? 'scaleX(-1)' : 'scaleX(1)';
-  // update switch button label
-  switchFacingBtn.textContent = (currentFacing === 'user') ? 'Front' : 'Back';
-  saveSettings();
-}
-
-// --- Notes persistence ---
-notesEl.value = localStorage.getItem('mirror.notes') || '';
-notesEl.addEventListener('input', ()=> localStorage.setItem('mirror.notes', notesEl.value));
-
-// --- UI bindings ---
-openSettingsBtn.addEventListener('click', ()=> settingsPanel.classList.toggle('hidden'));
-closeSettingsBtn.addEventListener('click', ()=> settingsPanel.classList.add('hidden'));
-showClockCB.addEventListener('change', applySettings);
-showWeatherCB.addEventListener('change', applySettings);
-showNotesCB.addEventListener('change', applySettings);
-
-toggleMirrorBtn.addEventListener('click', ()=>{
-  mirrorFlipped = !mirrorFlipped;
-  applySettings();
-});
-
-toggleCameraBtn.addEventListener('click', ()=>{
-  if (stream) stopCamera();
-  else startCamera();
-});
-
-// switch facing mode (front/back)
-switchFacingBtn.addEventListener('click', async ()=>{
-  currentFacing = currentFacing === 'user' ? 'environment' : 'user';
-  applySettings();
-  // restart camera with the new facing mode if it's running (or start it)
-  await startCamera(currentFacing);
-});
-
-// keyboard shortcuts
-window.addEventListener('keydown', (e)=>{
-  if (e.key === 's') settingsPanel.classList.toggle('hidden');
-  if (e.key === 'm') {
-    mirrorFlipped = !mirrorFlipped;
-    applySettings();
   }
-  if (e.key === 'c') {
-    if (stream) stopCamera(); else startCamera();
-  }
-  if (e.key === 'f') { // 'f' for facing toggle
-    currentFacing = currentFacing === 'user' ? 'environment' : 'user';
-    applySettings();
-    startCamera(currentFacing);
-  }
-});
 
-// init
-loadSettings();
-fetchWeather();
-startCamera(currentFacing); // try start camera immediately with saved/default facing
+  // Resize overlay to match video display size
+  function resizeCanvas(){
+    const rect = video.getBoundingClientRect();
+    overlay.width = Math.round(rect.width);
+    overlay.height = Math.round(rect.height);
+    // Ensure CSS sizing
+    overlay.style.width = rect.width + 'px';
+    overlay.style.height = rect.height + 'px';
+  }
 
-// optional: refresh weather every 15 minutes
-setInterval(fetchWeather, 15*60*1000);
+  window.addEventListener('resize', () => {
+    if (video.videoWidth) resizeCanvas();
+  });
+
+  video.addEventListener('loadedmetadata', () => {
+    resizeCanvas();
+    updateDetectionRunning();
+  });
+
+  // Drawing helpers
+  function clearOverlay(){
+    ctx.clearRect(0,0,overlay.width,overlay.height);
+  }
+
+  function drawBoxes(boxes, color='#00FF00', labelPrefix='Face'){
+    ctx.lineWidth = Math.max(2, Math.round(overlay.width / 200));
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.font = Math.max(12, Math.round(overlay.width / 40)) + 'px sans-serif';
+
+    boxes.forEach((b, i) => {
+      // b should be {x,y,width,height} in video pixel coordinates
+      ctx.beginPath();
+      ctx.rect(b.x, b.y, b.width, b.height);
+      ctx.stroke();
+      const label = labelPrefix + ' #' + (i+1);
+      const textWidth = ctx.measureText(label).width;
+      const padding = 4;
+      const textX = b.x;
+      const textY = Math.max(12, b.y - 6);
+      ctx.fillRect(textX - 1, textY - parseInt(ctx.font,10), textWidth + padding*2, parseInt(ctx.font,10) + 6);
+      ctx.fillStyle = '#000';
+      ctx.fillText(label, textX + padding, textY + parseInt(ctx.font,10) - 2);
+      ctx.fillStyle = color;
+    });
+  }
+
+  // Native FaceDetector loop
+  async function nativeLoop(){
+    if (!faceDetectionEnabled) return;
+    if (!detector) return;
+    try {
+      const faces = await detector.detect(video);
+      clearOverlay();
+      if (faces && faces.length) {
+        // faces[i].boundingBox gives DOMRect-like {x,y,width,height} in pixels relative to video
+        // Need to scale bounding boxes from intrinsic video size to displayed size.
+        const sx = overlay.width / video.videoWidth;
+        const sy = overlay.height / video.videoHeight;
+        const boxes = faces.map(f => {
+          return {
+            x: Math.round(f.boundingBox.x * sx),
+            y: Math.round(f.boundingBox.y * sy),
+            width: Math.round(f.boundingBox.width * sx),
+            height: Math.round(f.boundingBox.height * sy)
+          };
+        });
+        drawBoxes(boxes);
+      }
+    } catch (err) {
+      console.warn('FaceDetector.detect failed, falling back to tracking.js', err);
+      // If native detection fails at runtime, attempt to load tracking fallback
+      startTrackingFallback();
+      return;
+    }
+    animationId = requestAnimationFrame(nativeLoop);
+  }
+
+  // Load tracking.js dynamically and start tracker
+  function startTrackingFallback(){
+    if (trackingLoaded) {
+      startTracking();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/tracking@1.1.3/build/tracking-min.js';
+    script.onload = () => {
+      const script2 = document.createElement('script');
+      script2.src = 'https://cdn.jsdelivr.net/npm/tracking@1.1.3/build/data/face-min.js';
+      script2.onload = () => {
+        trackingLoaded = true;
+        startTracking();
+      };
+      script2.onerror = (e) => console.error('Failed to load tracking face data', e);
+      document.head.appendChild(script2);
+    };
+    script.onerror = (e) => console.error('Failed to load tracking.js', e);
+    document.head.appendChild(script);
+  }
+
+  function startTracking(){
+    if (!tracking) {
+      console.error('tracking.js not available');
+      return;
+    }
+    stopAnyDetectionLoops();
+    clearOverlay();
+
+    // Create tracker
+    try {
+      trackingTracker = new tracking.ObjectTracker('face');
+      trackingTracker.setInitialScale(4);
+      trackingTracker.setStepSize(1.7);
+      trackingTracker.setEdgesDensity(0.1);
+
+      trackingTracker.on('track', function(event) {
+        clearOverlay();
+        if (event.data && event.data.length) {
+          const boxes = event.data.map(item => {
+            // tracking.js returns x,y,width,height in video pixel coordinates relative to the tracked element
+            // Need to scale from video intrinsic size to displayed size
+            const sx = overlay.width / video.videoWidth;
+            const sy = overlay.height / video.videoHeight;
+            return {
+              x: Math.round(item.x * sx),
+              y: Math.round(item.y * sy),
+              width: Math.round(item.width * sx),
+              height: Math.round(item.height * sy)
+            };
+          });
+          drawBoxes(boxes, '#FF8C00', 'Face');
+        }
+      });
+
+      // Start tracking on the video element. tracking.track accepts CSS selector or element ID.
+      tracking.track('#video', trackingTracker);
+    } catch (err) {
+      console.error('Failed to start tracking.js tracker', err);
+    }
+  }
+
+  function stopTracking(){
+    try {
+      if (trackingTracker && tracking) {
+        trackingTracker.removeAllListeners && trackingTracker.removeAllListeners('track');
+        // tracking.js doesn't provide a clean stop API for trackers started via tracking.track
+        // but we can clear the interval listeners by tracking.stop() if present
+        if (typeof tracking.stop === 'function') {
+          try { tracking.stop(); } catch(e){}
+        }
+      }
+    } catch(e){ /* ignore */ }
+    trackingTracker = null;
+  }
+
+  function stopAnyDetectionLoops(){
+    if (animationId) {
+      cancelAnimationFrame(animationId);
+      animationId = null;
+    }
+    stopTracking();
+  }
+
+  // Start appropriate detection depending on availability
+  function updateDetectionRunning(){
+    stopAnyDetectionLoops();
+    clearOverlay();
+    if (!faceDetectionEnabled) return;
+
+    // Prefer native FaceDetector
+    if ('FaceDetector' in window) {
+      try {
+        detector = new FaceDetector({ fastMode: true, maxDetectedFaces: 5 });
+        nativeLoop();
+        return;
+      } catch (err) {
+        console.warn('Failed to construct native FaceDetector', err);
+        detector = null;
+      }
+    }
+
+    // Fallback to tracking.js
+    startTrackingFallback();
+  }
+
+  // Start things
+  startCamera();
+
+  // Expose for debugging
+  window.__smartMirror = window.__smartMirror || {};
+  window.__smartMirror.startFaceDetection = () => { faceToggle.checked = true; faceToggle.dispatchEvent(new Event('change')); };
+  window.__smartMirror.stopFaceDetection = () => { faceToggle.checked = false; faceToggle.dispatchEvent(new Event('change')); };
+
+})();
