@@ -2,41 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Smart Mirror</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <div id="app">
-    <header>
-      <h1>Smart Mirror</h1>
-      <button id="settings-toggle" aria-expanded="false">⚙️ Settings</button>
-    </header>
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="overlay"></canvas>
 
-    <main>
-      <div id="camera-container">
-        <video id="video" autoplay muted playsinline></video>
-        <canvas id="overlay" aria-hidden="true"></canvas>
-      </div>
-
-      <section id="settings" hidden>
-        <h2>Settings</h2>
-        <label>
-          <input type="checkbox" id="face-toggle">
-          Enable face detection
-        </label>
-        <p class="note">Uses the native FaceDetector if available; falls back to tracking.js.</p>
-      </section>
-
-      <!-- other mirror widgets could go here -->
-    </main>
-
-    <footer>
-      <small>Smart Mirror &copy; </small>
-    </footer>
+  <div id="settings" role="region" aria-label="Settings">
+    <div class="setting-item">
+      <label for="faceToggle">Face detection</label>
+      <input type="checkbox" id="faceToggle" />
+    </div>
+    <!-- Additional settings can go here -->
   </div>
 
-  <!-- tracking.js fallback (loaded only if needed) -->
-  <script src="script.js"></script>
+  <script src="/script.js"></script>
 </body>
 </html>

@@ -1,236 +1,136 @@
-(function(){
-  // DOM refs
-  const video = document.getElementById('video');
-  const overlay = document.getElementById('overlay');
-  const ctx = overlay.getContext('2d');
-  const settingsToggle = document.getElementById('settings-toggle');
-  const settingsPanel = document.getElementById('settings');
-  const faceToggle = document.getElementById('face-toggle');
+// script.js - mirror fullscreen camera with optional face detection overlay
 
-  // State
-  let faceDetectionEnabled = (localStorage.getItem('faceDetectionEnabled') === 'true');
-  let detector = null; // native FaceDetector
-  let trackingLoaded = false;
-  let trackingTracker = null;
-  let animationId = null;
+const video = document.getElementById('video');
+const overlay = document.getElementById('overlay');
+const faceToggle = document.getElementById('faceToggle');
+const ctx = overlay.getContext('2d');
 
-  // Initialize UI
-  faceToggle.checked = faceDetectionEnabled;
-  settingsToggle.addEventListener('click', () => {
-    const expanded = settingsToggle.getAttribute('aria-expanded') === 'true';
-    settingsToggle.setAttribute('aria-expanded', String(!expanded));
-    settingsPanel.hidden = !settingsPanel.hidden;
-  });
+let detector = null;
+let detecting = false;
+let rafId = null;
 
-  faceToggle.addEventListener('change', (e) => {
-    faceDetectionEnabled = e.target.checked;
-    localStorage.setItem('faceDetectionEnabled', String(faceDetectionEnabled));
-    updateDetectionRunning();
-  });
-
-  // Start camera
-  async function startCamera(){
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
-      video.srcObject = stream;
-      await video.play();
-      resizeCanvas();
-    } catch (err) {
-      console.error('Could not start video stream', err);
-    }
-  }
-
-  // Resize overlay to match video display size
-  function resizeCanvas(){
-    const rect = video.getBoundingClientRect();
-    overlay.width = Math.round(rect.width);
-    overlay.height = Math.round(rect.height);
-    // Ensure CSS sizing
-    overlay.style.width = rect.width + 'px';
-    overlay.style.height = rect.height + 'px';
-  }
-
-  window.addEventListener('resize', () => {
-    if (video.videoWidth) resizeCanvas();
-  });
-
-  video.addEventListener('loadedmetadata', () => {
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    video.srcObject = stream;
+    await video.play();
     resizeCanvas();
-    updateDetectionRunning();
+  } catch (err) {
+    console.error('Unable to access camera:', err);
+  }
+}
+
+function resizeCanvas() {
+  const vw = video.videoWidth || video.clientWidth || window.innerWidth;
+  const vh = video.videoHeight || video.clientHeight || window.innerHeight;
+  const dpr = window.devicePixelRatio || 1;
+  overlay.width = vw * dpr;
+  overlay.height = vh * dpr;
+  overlay.style.width = `${vw}px`;
+  overlay.style.height = `${vh}px`;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // scale drawing to device pixels
+}
+
+function clearOverlay() {
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+}
+
+function drawDetections(detections) {
+  clearOverlay();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(0, 255, 128, 0.9)';
+  ctx.fillStyle = 'rgba(0, 255, 128, 0.25)';
+
+  // video is mirrored via CSS; mirror the drawing horizontally so boxes align visually
+  const vw = overlay.width / (window.devicePixelRatio || 1);
+
+  detections.forEach(det => {
+    const box = det.boundingBox || det.box || det; // support different detector outputs
+    const x = box.x || box.left || 0;
+    const y = box.y || box.top || 0;
+    const w = box.width || box.right - x || box.width || 0;
+    const h = box.height || box.bottom - y || box.height || 0;
+
+    // mirrored x
+    const mx = vw - (x + w);
+
+    ctx.beginPath();
+    ctx.rect(mx, y, w, h);
+    ctx.fill();
+    ctx.stroke();
   });
+}
 
-  // Drawing helpers
-  function clearOverlay(){
-    ctx.clearRect(0,0,overlay.width,overlay.height);
-  }
-
-  function drawBoxes(boxes, color='#00FF00', labelPrefix='Face'){
-    ctx.lineWidth = Math.max(2, Math.round(overlay.width / 200));
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
-    ctx.font = Math.max(12, Math.round(overlay.width / 40)) + 'px sans-serif';
-
-    boxes.forEach((b, i) => {
-      // b should be {x,y,width,height} in video pixel coordinates
-      ctx.beginPath();
-      ctx.rect(b.x, b.y, b.width, b.height);
-      ctx.stroke();
-      const label = labelPrefix + ' #' + (i+1);
-      const textWidth = ctx.measureText(label).width;
-      const padding = 4;
-      const textX = b.x;
-      const textY = Math.max(12, b.y - 6);
-      ctx.fillRect(textX - 1, textY - parseInt(ctx.font,10), textWidth + padding*2, parseInt(ctx.font,10) + 6);
-      ctx.fillStyle = '#000';
-      ctx.fillText(label, textX + padding, textY + parseInt(ctx.font,10) - 2);
-      ctx.fillStyle = color;
-    });
-  }
-
-  // Native FaceDetector loop
-  async function nativeLoop(){
-    if (!faceDetectionEnabled) return;
-    if (!detector) return;
+async function initFaceDetectorIfAvailable() {
+  if ('FaceDetector' in window) {
     try {
-      const faces = await detector.detect(video);
-      clearOverlay();
-      if (faces && faces.length) {
-        // faces[i].boundingBox gives DOMRect-like {x,y,width,height} in pixels relative to video
-        // Need to scale bounding boxes from intrinsic video size to displayed size.
-        const sx = overlay.width / video.videoWidth;
-        const sy = overlay.height / video.videoHeight;
-        const boxes = faces.map(f => {
-          return {
-            x: Math.round(f.boundingBox.x * sx),
-            y: Math.round(f.boundingBox.y * sy),
-            width: Math.round(f.boundingBox.width * sx),
-            height: Math.round(f.boundingBox.height * sy)
-          };
-        });
-        drawBoxes(boxes);
-      }
+      detector = new FaceDetector({ fastMode: true, maxDetectedFaces: 5 });
+      console.info('Using native FaceDetector API');
     } catch (err) {
-      console.warn('FaceDetector.detect failed, falling back to tracking.js', err);
-      // If native detection fails at runtime, attempt to load tracking fallback
-      startTrackingFallback();
-      return;
+      console.warn('FaceDetector initialization failed:', err);
+      detector = null;
     }
-    animationId = requestAnimationFrame(nativeLoop);
+  } else {
+    console.warn('FaceDetector API not available in this browser. Face detection disabled.');
+    detector = null;
   }
+}
 
-  // Load tracking.js dynamically and start tracker
-  function startTrackingFallback(){
-    if (trackingLoaded) {
-      startTracking();
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/tracking@1.1.3/build/tracking-min.js';
-    script.onload = () => {
-      const script2 = document.createElement('script');
-      script2.src = 'https://cdn.jsdelivr.net/npm/tracking@1.1.3/build/data/face-min.js';
-      script2.onload = () => {
-        trackingLoaded = true;
-        startTracking();
-      };
-      script2.onerror = (e) => console.error('Failed to load tracking face data', e);
-      document.head.appendChild(script2);
-    };
-    script.onerror = (e) => console.error('Failed to load tracking.js', e);
-    document.head.appendChild(script);
-  }
-
-  function startTracking(){
-    if (!tracking) {
-      console.error('tracking.js not available');
-      return;
-    }
-    stopAnyDetectionLoops();
+async function detectionLoop() {
+  if (!detecting || !detector) {
     clearOverlay();
-
-    // Create tracker
-    try {
-      trackingTracker = new tracking.ObjectTracker('face');
-      trackingTracker.setInitialScale(4);
-      trackingTracker.setStepSize(1.7);
-      trackingTracker.setEdgesDensity(0.1);
-
-      trackingTracker.on('track', function(event) {
-        clearOverlay();
-        if (event.data && event.data.length) {
-          const boxes = event.data.map(item => {
-            // tracking.js returns x,y,width,height in video pixel coordinates relative to the tracked element
-            // Need to scale from video intrinsic size to displayed size
-            const sx = overlay.width / video.videoWidth;
-            const sy = overlay.height / video.videoHeight;
-            return {
-              x: Math.round(item.x * sx),
-              y: Math.round(item.y * sy),
-              width: Math.round(item.width * sx),
-              height: Math.round(item.height * sy)
-            };
-          });
-          drawBoxes(boxes, '#FF8C00', 'Face');
-        }
-      });
-
-      // Start tracking on the video element. tracking.track accepts CSS selector or element ID.
-      tracking.track('#video', trackingTracker);
-    } catch (err) {
-      console.error('Failed to start tracking.js tracker', err);
-    }
+    return;
   }
 
-  function stopTracking(){
-    try {
-      if (trackingTracker && tracking) {
-        trackingTracker.removeAllListeners && trackingTracker.removeAllListeners('track');
-        // tracking.js doesn't provide a clean stop API for trackers started via tracking.track
-        // but we can clear the interval listeners by tracking.stop() if present
-        if (typeof tracking.stop === 'function') {
-          try { tracking.stop(); } catch(e){}
-        }
-      }
-    } catch(e){ /* ignore */ }
-    trackingTracker = null;
+  try {
+    const detections = await detector.detect(video);
+    drawDetections(detections);
+  } catch (err) {
+    console.error('Face detection error:', err);
   }
 
-  function stopAnyDetectionLoops(){
-    if (animationId) {
-      cancelAnimationFrame(animationId);
-      animationId = null;
-    }
-    stopTracking();
+  rafId = requestAnimationFrame(detectionLoop);
+}
+
+function startDetection() {
+  if (!detector) {
+    alert('Face detection is not available in this browser.');
+    faceToggle.checked = false;
+    return;
   }
-
-  // Start appropriate detection depending on availability
-  function updateDetectionRunning(){
-    stopAnyDetectionLoops();
-    clearOverlay();
-    if (!faceDetectionEnabled) return;
-
-    // Prefer native FaceDetector
-    if ('FaceDetector' in window) {
-      try {
-        detector = new FaceDetector({ fastMode: true, maxDetectedFaces: 5 });
-        nativeLoop();
-        return;
-      } catch (err) {
-        console.warn('Failed to construct native FaceDetector', err);
-        detector = null;
-      }
-    }
-
-    // Fallback to tracking.js
-    startTrackingFallback();
+  if (!detecting) {
+    detecting = true;
+    detectionLoop();
   }
+}
 
-  // Start things
-  startCamera();
+function stopDetection() {
+  detecting = false;
+  if (rafId) {
+    cancelAnimationFrame(rafId);
+    rafId = null;
+  }
+  clearOverlay();
+}
 
-  // Expose for debugging
-  window.__smartMirror = window.__smartMirror || {};
-  window.__smartMirror.startFaceDetection = () => { faceToggle.checked = true; faceToggle.dispatchEvent(new Event('change')); };
-  window.__smartMirror.stopFaceDetection = () => { faceToggle.checked = false; faceToggle.dispatchEvent(new Event('change')); };
+faceToggle.addEventListener('change', () => {
+  if (faceToggle.checked) startDetection(); else stopDetection();
+});
 
+window.addEventListener('resize', resizeCanvas);
+video.addEventListener('loadedmetadata', resizeCanvas);
+
+// Stop detection when page hidden to save CPU
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopDetection();
+});
+
+(async function init() {
+  await startCamera();
+  await initFaceDetectorIfAvailable();
+  // If face detector isn't available, keep the toggle visible but disabled
+  if (!detector) {
+    faceToggle.disabled = true;
+    faceToggle.title = 'Face detection not supported in this browser';
+  }
 })();
