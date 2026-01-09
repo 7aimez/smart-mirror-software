@@ -217,13 +217,21 @@
       visibility: hidden;
       transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       overflow-y: auto;
-      max-height: 70vh;
+      max-height: calc(100vh - 7rem); /* Keep within video-wrapper */
+      box-sizing: border-box;
     }
 
     #settings:not([hidden]) {
       transform: translateY(0) scale(1);
       opacity: 1;
       visibility: visible;
+    }
+
+    /* Ensure settings stays within video-wrapper */
+    @media (max-height: 600px) {
+      #settings {
+        max-height: calc(100vh - 6rem);
+      }
     }
 
     .settings-section {
@@ -279,13 +287,13 @@
       color: var(--accent);
     }
 
-    /* Toggle Switch */
+    /* Toggle Switch - FIXED: Swapped logic */
     .toggle-switch {
       appearance: none;
       -webkit-appearance: none;
       width: 44px;
       height: 24px;
-      background: rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.9); /* Changed: Light when ON */
       border-radius: 50px;
       position: relative;
       cursor: pointer;
@@ -300,19 +308,19 @@
       left: 2px;
       width: 20px;
       height: 20px;
-      background: #fff;
+      background: #000; /* Changed: Dark when ON */
       border-radius: 50%;
       transition: transform 0.25s ease;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
     }
 
     .toggle-switch:checked {
-      background: rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.15); /* Changed: Dark when OFF */
     }
 
     .toggle-switch:checked::before {
       transform: translateX(20px);
-      background: #000;
+      background: #fff; /* Changed: Light when OFF */
     }
 
     /* Range Slider */
@@ -371,10 +379,11 @@
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
+      margin-top: 0.75rem; /* ADDED: Space above buttons */
     }
 
     .settings-button + .settings-button {
-      margin-top: 0.5rem; /* ADDED: Space between buttons */
+      margin-top: 0.5rem; /* Space between buttons */
     }
 
     .settings-button:hover {
@@ -456,6 +465,7 @@
         right: 1rem;
         width: calc(100vw - 2rem);
         max-width: 300px;
+        max-height: calc(100vh - 5.5rem); /* Adjust for mobile */
       }
     }
 
@@ -474,6 +484,10 @@
       .widget-datetime {
         bottom: auto;
         top: 5rem;
+      }
+      
+      #settings {
+        max-height: calc(100vh - 5rem);
       }
     }
   </style>
@@ -572,6 +586,7 @@
                 </label>
                 <input type="checkbox" id="dark-mode" class="toggle-switch" checked>
               </div>
+              <!-- ADDED SPACING BELOW DARK MODE -->
               <button class="settings-button" id="reset-settings">
                 <i class="fa-solid fa-rotate-left"></i>
                 <span>Reset All Settings</span>
@@ -762,7 +777,7 @@
         document.getElementById('dark-mode').addEventListener('change', (e) => {
           settings.darkMode = e.target.checked;
           saveSettings();
-          applyTheme(); // FIXED: Renamed from applyDarkMode to applyTheme
+          applyTheme();
         });
 
         // Buttons
@@ -787,7 +802,7 @@
         applyWidgetVisibility();
         applyWidgetTransparency();
         applyCameraSettings();
-        applyTheme(); // FIXED: Renamed from applyDarkMode to applyTheme
+        applyTheme();
       }
 
       function applyWidgetVisibility() {
@@ -827,16 +842,16 @@
         // Apply theme based on dark mode setting
         const root = document.documentElement;
         if (settings.darkMode) {
-          // Dark mode (default)
+          // Dark mode (default) - when toggle is ON
           root.style.setProperty('--glass', 'rgba(255, 255, 255, 0.06)');
           root.style.setProperty('--glass-border', 'rgba(255, 255, 255, 0.1)');
           root.style.setProperty('--text', 'rgba(255, 255, 255, 0.9)');
           root.style.setProperty('--text-dim', 'rgba(255, 255, 255, 0.5)');
           document.body.style.background = '#000';
         } else {
-          // Light mode
-          root.style.setProperty('--glass', 'rgba(255, 255, 255, 0.3)');
-          root.style.setProperty('--glass-border', 'rgba(255, 255, 255, 0.2)');
+          // Light mode - when toggle is OFF
+          root.style.setProperty('--glass', 'rgba(0, 0, 0, 0.06)');
+          root.style.setProperty('--glass-border', 'rgba(0, 0, 0, 0.1)');
           root.style.setProperty('--text', 'rgba(0, 0, 0, 0.9)');
           root.style.setProperty('--text-dim', 'rgba(0, 0, 0, 0.6)');
           document.body.style.background = '#f0f0f0';
