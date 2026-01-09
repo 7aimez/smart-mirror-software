@@ -379,46 +379,49 @@
           <video id="video" autoplay muted playsinline></video>
           <canvas id="overlay" aria-hidden="true"></canvas>
         </div>
-      </div>
-
-      <!-- DateTime Widget -->
-      <div class="widget widget-datetime">
-        <div class="time">
-          <span id="time-hm">--:--</span><span class="time-seconds" id="time-s">--</span>
+        
+        <!-- DateTime Widget -->
+        <div class="widget widget-datetime">
+          <div class="time">
+            <span id="time-hm">--:--</span><span class="time-seconds" id="time-s">--</span>
+          </div>
+          <div class="date" id="date">---</div>
         </div>
-        <div class="date" id="date">---</div>
-      </div>
-
-      <!-- Weather Widget -->
-      <div class="widget widget-weather" id="weather-widget">
-        <div class="weather-icon" id="weather-icon">
-          <i class="fa-solid fa-cloud"></i>
-        </div>
-        <div class="weather-info">
-          <div class="weather-temp" id="weather-temp">--°</div>
-          <div class="weather-desc" id="weather-desc">Loading...</div>
-          <div class="weather-details">
-            <span><i class="fa-solid fa-droplet"></i> <span id="weather-humidity">--%</span></span>
-            <span><i class="fa-solid fa-wind"></i> <span id="weather-wind">-- km/h</span></span>
+  
+        <!-- Weather Widget -->
+        <div class="widget widget-weather" id="weather-widget">
+          <div class="weather-icon" id="weather-icon">
+            <i class="fa-solid fa-cloud"></i>
+          </div>
+          <div class="weather-info">
+            <div class="weather-temp" id="weather-temp">--°</div>
+            <div class="weather-desc" id="weather-desc">Loading...</div>
+            <div class="weather-details">
+              <span><i class="fa-solid fa-droplet"></i> <span id="weather-humidity">--%</span></span>
+              <span><i class="fa-solid fa-wind"></i> <span id="weather-wind">-- km/h</span></span>
+            </div>
           </div>
         </div>
+
+        <!-- Settings Button -->
+        <button id="settings-toggle" aria-expanded="false" aria-label="Settings">
+          <i class="fa-solid fa-gear"></i>
+        </button>
+  
+        <section id="settings" hidden>
+          <h2>Settings</h2>
+          <label>
+            <i class="fa-solid fa-face-smile"></i>
+            <input type="checkbox" id="face-toggle" class="toggle-switch">
+          </label>
+          <p class="note">Uses the native FaceDetector if available; falls back to tracking.js.</p>
+        </section>
+        
       </div>
-
-      <button id="settings-toggle" aria-expanded="false" aria-label="Settings">
-        <i class="fa-solid fa-gear"></i>
-      </button>
-
-      <section id="settings" hidden>
-        <h2>Settings</h2>
-        <label>
-          <i class="fa-solid fa-face-smile"></i>
-          <input type="checkbox" id="face-toggle" class="toggle-switch">
-        </label>
-        <p class="note">Uses the native FaceDetector if available; falls back to tracking.js.</p>
-      </section>
     </main>
   </div>
 
+      
   <script src="script.js"></script>
   <script>
     // ===== TIME & DATE WIDGET =====
