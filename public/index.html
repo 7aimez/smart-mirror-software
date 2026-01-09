@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" >
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" >
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Smart Mirror</title>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
   <style>
     *, *::before, *::after {
       box-sizing: border-box;
@@ -13,19 +14,18 @@
     }
 
     :root {
-      --bg-glass: rgba(10, 10, 15, 0.6);
-      --border-glass: rgba(255, 255, 255, 0.08);
-      --text: #f0f0f0;
+      --glass: rgba(255, 255, 255, 0.06);
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --text: rgba(255, 255, 255, 0.9);
       --text-dim: rgba(255, 255, 255, 0.5);
-      --accent: #a78bfa;
-      --accent-glow: rgba(167, 139, 250, 0.5);
+      --accent: #fff;
     }
 
     html, body {
       height: 100%;
       width: 100%;
       overflow: hidden;
-      font-family: 'Syne', sans-serif;
+      font-family: 'Inter', -apple-system, sans-serif;
       background: #000;
       color: var(--text);
     }
@@ -44,7 +44,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0f 100%);
+      background: #0a0a0a;
     }
 
     #video {
@@ -58,93 +58,63 @@
       position: absolute;
       pointer-events: none;
       transform: scaleX(-1);
-      /* Size and position set by JS to match video */
     }
 
-    /* ===== HEADER ===== */
-    header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 100;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1.5rem 2rem;
-      background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%);
-    }
-
-    h1 {
-      font-size: 1.125rem;
-      font-weight: 600;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    h1::before {
-      content: '';
-      width: 10px;
-      height: 10px;
-      background: var(--accent);
-      border-radius: 2px;
-      box-shadow: 0 0 20px var(--accent-glow);
-      animation: glow 2s ease-in-out infinite alternate;
-    }
-
-    @keyframes glow {
-      from { opacity: 0.7; box-shadow: 0 0 10px var(--accent-glow); }
-      to { opacity: 1; box-shadow: 0 0 25px var(--accent-glow); }
-    }
-
+    /* ===== SETTINGS BUTTON ===== */
     #settings-toggle {
-      padding: 0.75rem 1.25rem;
-      font-family: inherit;
-      font-size: 0.8125rem;
-      font-weight: 500;
-      letter-spacing: 1px;
+      position: fixed;
+      top: 1.5rem;
+      right: 1.5rem;
+      z-index: 100;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.125rem;
       color: var(--text);
-      background: var(--bg-glass);
+      background: var(--glass);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      border: 1px solid var(--border-glass);
-      border-radius: 8px;
+      border: 1px solid var(--glass-border);
+      border-radius: 50%;
       cursor: pointer;
-      transition: all 0.25s ease;
+      transition: all 0.2s ease;
     }
 
-    #settings-toggle:hover,
-    #settings-toggle:focus {
-      background: rgba(167, 139, 250, 0.15);
-      border-color: var(--accent);
-      outline: none;
+    #settings-toggle:hover {
+      background: rgba(255, 255, 255, 0.12);
+      transform: scale(1.05);
     }
 
     #settings-toggle[aria-expanded="true"] {
-      background: rgba(167, 139, 250, 0.2);
-      border-color: var(--accent);
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    #settings-toggle i {
+      transition: transform 0.4s ease;
+    }
+
+    #settings-toggle[aria-expanded="true"] i {
+      transform: rotate(90deg);
     }
 
     /* ===== SETTINGS PANEL ===== */
     #settings {
       position: fixed;
-      top: 5rem;
-      right: 2rem;
+      top: 5.5rem;
+      right: 1.5rem;
       z-index: 99;
-      width: min(340px, calc(100vw - 3rem));
-      padding: 1.75rem;
-      background: var(--bg-glass);
+      padding: 0.5rem;
+      background: var(--glass);
       backdrop-filter: blur(30px);
       -webkit-backdrop-filter: blur(30px);
-      border: 1px solid var(--border-glass);
+      border: 1px solid var(--glass-border);
       border-radius: 16px;
-      transform: translateY(-15px) scale(0.97);
+      transform: translateY(-8px) scale(0.95);
       opacity: 0;
       visibility: hidden;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     #settings:not([hidden]) {
@@ -154,166 +124,115 @@
     }
 
     #settings h2 {
-      font-size: 0.6875rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      color: var(--text-dim);
-      margin-bottom: 1.5rem;
-      padding-bottom: 1rem;
-      border-bottom: 1px solid var(--border-glass);
+      display: none;
     }
 
     #settings label {
       display: flex;
       align-items: center;
-      gap: 1rem;
-      padding: 1rem 1.25rem;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid transparent;
+      justify-content: center;
+      gap: 0.875rem;
+      padding: 0.875rem 1.25rem;
       border-radius: 12px;
       cursor: pointer;
-      transition: all 0.2s ease;
-      font-size: 0.9375rem;
-      font-weight: 500;
+      transition: background 0.2s ease;
+      white-space: nowrap;
     }
 
     #settings label:hover {
       background: rgba(255, 255, 255, 0.06);
-      border-color: var(--border-glass);
     }
 
-    /* Custom Checkbox */
+    #settings label i {
+      font-size: 1rem;
+      width: 20px;
+      text-align: center;
+      color: var(--text-dim);
+      transition: color 0.2s ease;
+    }
+
+    #settings label:has(#face-toggle:checked) i {
+      color: var(--accent);
+    }
+
+    /* Toggle Switch */
     #face-toggle {
       appearance: none;
       -webkit-appearance: none;
-      width: 48px;
-      height: 26px;
-      background: rgba(255, 255, 255, 0.1);
+      width: 44px;
+      height: 24px;
+      background: rgba(255, 255, 255, 0.15);
       border-radius: 50px;
       position: relative;
       cursor: pointer;
-      transition: background 0.3s ease;
+      transition: background 0.25s ease;
       flex-shrink: 0;
     }
 
     #face-toggle::before {
       content: '';
       position: absolute;
-      top: 3px;
-      left: 3px;
+      top: 2px;
+      left: 2px;
       width: 20px;
       height: 20px;
       background: #fff;
       border-radius: 50%;
-      transition: transform 0.3s ease;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      transition: transform 0.25s ease;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
     }
 
     #face-toggle:checked {
-      background: var(--accent);
+      background: rgba(255, 255, 255, 0.9);
     }
 
     #face-toggle:checked::before {
-      transform: translateX(22px);
-    }
-
-    #face-toggle:focus {
-      outline: 2px solid var(--accent-glow);
-      outline-offset: 2px;
+      transform: translateX(20px);
+      background: #000;
     }
 
     .note {
-      margin-top: 1rem;
-      padding: 0.875rem 1rem;
-      font-size: 0.75rem;
-      line-height: 1.5;
-      color: var(--text-dim);
-      background: rgba(167, 139, 250, 0.08);
-      border-left: 2px solid var(--accent);
-      border-radius: 0 8px 8px 0;
-    }
-
-    /* ===== FOOTER ===== */
-    footer {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      z-index: 100;
-      padding: 1.25rem 2rem;
-      text-align: center;
-      font-size: 0.6875rem;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      background: linear-gradient(0deg, rgba(0,0,0,0.7) 0%, transparent 100%);
-    }
-
-    /* ===== ANIMATIONS ===== */
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    header, footer {
-      animation: fadeIn 0.6s ease-out;
+      display: none;
     }
 
     /* ===== RESPONSIVE ===== */
     @media (max-width: 480px) {
-      header {
-        padding: 1rem 1.25rem;
-      }
-
-      h1 {
-        font-size: 0.9375rem;
-        letter-spacing: 1px;
-      }
-
       #settings-toggle {
-        padding: 0.625rem 1rem;
-        font-size: 0.75rem;
+        top: 1rem;
+        right: 1rem;
+        width: 44px;
+        height: 44px;
+        font-size: 1rem;
       }
 
       #settings {
+        top: 4.5rem;
         right: 1rem;
-        left: 1rem;
-        width: auto;
-      }
-
-      footer {
-        padding: 1rem;
       }
     }
   </style>
 </head>
 <body>
   <div id="app">
-    <header>
-      <h1>Smart Mirror</h1>
-      <button id="settings-toggle" aria-expanded="false">⚙️ Settings</button>
-    </header>
-
     <main>
       <div id="camera-container">
         <video id="video" autoplay muted playsinline></video>
         <canvas id="overlay" aria-hidden="true"></canvas>
       </div>
 
+      <button id="settings-toggle" aria-expanded="false" aria-label="Settings">
+        <i class="fa-solid fa-gear"></i>
+      </button>
+
       <section id="settings" hidden>
         <h2>Settings</h2>
         <label>
+          <i class="fa-solid fa-face-smile"></i>
           <input type="checkbox" id="face-toggle">
-          Enable face detection
         </label>
         <p class="note">Uses the native FaceDetector if available; falls back to tracking.js.</p>
       </section>
     </main>
-
-    <footer>
-      <small>Smart Mirror © 2025</small>
-    </footer>
   </div>
 
   <script src="script.js"></script>
