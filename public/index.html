@@ -315,31 +315,6 @@
       background: #000;
     }
 
-    /* Color Picker */
-    .color-picker {
-      display: flex;
-      gap: 0.5rem;
-      margin-top: 0.5rem;
-    }
-
-    .color-option {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      cursor: pointer;
-      border: 2px solid transparent;
-      transition: transform 0.2s ease, border-color 0.2s ease;
-    }
-
-    .color-option:hover {
-      transform: scale(1.1);
-    }
-
-    .color-option.selected {
-      border-color: var(--accent);
-      transform: scale(1.1);
-    }
-
     /* Range Slider */
     .range-slider {
       width: 100%;
@@ -380,7 +355,7 @@
       text-align: right;
     }
 
-    /* Button Style */
+    /* Button Style - FIXED SPACING */
     .settings-button {
       width: 100%;
       padding: 0.75rem 1rem;
@@ -396,6 +371,10 @@
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
+    }
+
+    .settings-button + .settings-button {
+      margin-top: 0.5rem; /* ADDED: Space between buttons */
     }
 
     .settings-button:hover {
@@ -416,8 +395,9 @@
     .note {
       font-size: 0.7rem;
       color: var(--text-dim);
-      margin-top: 0.25rem;
+      margin-top: 0.75rem;
       padding: 0 0.5rem;
+      text-align: center;
     }
 
     /* ===== RESPONSIVE ===== */
@@ -547,42 +527,6 @@
             </div>
 
             <div class="settings-section">
-              <h3>Box Appearance</h3>
-              <div class="settings-item">
-                <label class="settings-item-label">
-                  <i class="fa-solid fa-palette"></i>
-                  <span>Box Color</span>
-                </label>
-                <input type="checkbox" id="box-color-toggle" class="toggle-switch" hidden>
-              </div>
-              <div class="color-picker" id="color-picker">
-                <div class="color-option selected" data-color="#00FF00" style="background-color: #00FF00;"></div>
-                <div class="color-option" data-color="#FF8C00" style="background-color: #FF8C00;"></div>
-                <div class="color-option" data-color="#00AAFF" style="background-color: #00AAFF;"></div>
-                <div class="color-option" data-color="#FF00FF" style="background-color: #FF00FF;"></div>
-                <div class="color-option" data-color="#FFFF00" style="background-color: #FFFF00;"></div>
-              </div>
-              
-              <div class="settings-item">
-                <label class="settings-item-label">
-                  <i class="fa-solid fa-expand-alt"></i>
-                  <span>Box Thickness</span>
-                </label>
-                <input type="range" id="box-thickness" class="range-slider" min="1" max="10" value="2">
-              </div>
-              <div class="range-value" id="thickness-value">2px</div>
-              
-              <div class="settings-item">
-                <label class="settings-item-label">
-                  <i class="fa-solid fa-fill-drip"></i>
-                  <span>Box Opacity</span>
-                </label>
-                <input type="range" id="box-opacity" class="range-slider" min="0" max="100" value="5">
-              </div>
-              <div class="range-value" id="opacity-value">5%</div>
-            </div>
-
-            <div class="settings-section">
               <h3>Widgets</h3>
               <div class="settings-item">
                 <label class="settings-item-label">
@@ -616,13 +560,6 @@
                   <span>Mirror Camera</span>
                 </label>
                 <input type="checkbox" id="mirror-camera" class="toggle-switch" checked>
-              </div>
-              <div class="settings-item">
-                <label class="settings-item-label">
-                  <i class="fa-solid fa-lightbulb"></i>
-                  <span>Low Light Mode</span>
-                </label>
-                <input type="checkbox" id="low-light-mode" class="toggle-switch">
               </div>
             </div>
 
@@ -745,14 +682,10 @@
       // Settings State
       let settings = {
         faceDetection: true,
-        boxColor: '#00FF00',
-        boxThickness: 2,
-        boxOpacity: 5,
         showTimeWidget: true,
         showWeatherWidget: true,
         widgetTransparency: 0,
         mirrorCamera: true,
-        lowLightMode: false,
         darkMode: true
       };
 
@@ -783,52 +716,17 @@
         document.getElementById('time-widget-toggle').checked = settings.showTimeWidget;
         document.getElementById('weather-widget-toggle').checked = settings.showWeatherWidget;
         document.getElementById('mirror-camera').checked = settings.mirrorCamera;
-        document.getElementById('low-light-mode').checked = settings.lowLightMode;
         document.getElementById('dark-mode').checked = settings.darkMode;
         
-        document.getElementById('box-thickness').value = settings.boxThickness;
-        document.getElementById('box-opacity').value = settings.boxOpacity;
         document.getElementById('widget-transparency').value = settings.widgetTransparency;
         
         // Update display values
-        updateRangeValue('thickness-value', settings.boxThickness, 'px');
-        updateRangeValue('opacity-value', settings.boxOpacity, '%');
         updateRangeValue('transparency-value', settings.widgetTransparency, '%');
         
         // Apply initial settings
         applyAllSettings();
-        
-        // Color picker
-        const colorOptions = document.querySelectorAll('.color-option');
-        colorOptions.forEach(option => {
-          if (option.dataset.color === settings.boxColor) {
-            option.classList.add('selected');
-          }
-          
-          option.addEventListener('click', () => {
-            colorOptions.forEach(o => o.classList.remove('selected'));
-            option.classList.add('selected');
-            settings.boxColor = option.dataset.color;
-            saveSettings();
-            applyBoxAppearance();
-          });
-        });
 
-        // Range sliders
-        document.getElementById('box-thickness').addEventListener('input', (e) => {
-          settings.boxThickness = parseInt(e.target.value);
-          updateRangeValue('thickness-value', settings.boxThickness, 'px');
-          saveSettings();
-          applyBoxAppearance();
-        });
-
-        document.getElementById('box-opacity').addEventListener('input', (e) => {
-          settings.boxOpacity = parseInt(e.target.value);
-          updateRangeValue('opacity-value', settings.boxOpacity, '%');
-          saveSettings();
-          applyBoxAppearance();
-        });
-
+        // Range slider
         document.getElementById('widget-transparency').addEventListener('input', (e) => {
           settings.widgetTransparency = parseInt(e.target.value);
           updateRangeValue('transparency-value', settings.widgetTransparency, '%');
@@ -861,16 +759,10 @@
           applyCameraSettings();
         });
 
-        document.getElementById('low-light-mode').addEventListener('change', (e) => {
-          settings.lowLightMode = e.target.checked;
-          saveSettings();
-          // This would need camera API adjustments to implement
-        });
-
         document.getElementById('dark-mode').addEventListener('change', (e) => {
           settings.darkMode = e.target.checked;
           saveSettings();
-          applyDarkMode();
+          applyTheme(); // FIXED: Renamed from applyDarkMode to applyTheme
         });
 
         // Buttons
@@ -892,19 +784,10 @@
       }
 
       function applyAllSettings() {
-        applyBoxAppearance();
         applyWidgetVisibility();
         applyWidgetTransparency();
         applyCameraSettings();
-        applyDarkMode();
-      }
-
-      function applyBoxAppearance() {
-        // This will be used by the face detection script
-        window.__smartMirrorSettings = window.__smartMirrorSettings || {};
-        window.__smartMirrorSettings.boxColor = settings.boxColor;
-        window.__smartMirrorSettings.boxThickness = settings.boxThickness;
-        window.__smartMirrorSettings.boxOpacity = settings.boxOpacity / 100;
+        applyTheme(); // FIXED: Renamed from applyDarkMode to applyTheme
       }
 
       function applyWidgetVisibility() {
@@ -940,33 +823,33 @@
         }
       }
 
-      function applyDarkMode() {
-        // Update CSS variables for dark/light mode
+      function applyTheme() {
+        // Apply theme based on dark mode setting
         const root = document.documentElement;
         if (settings.darkMode) {
+          // Dark mode (default)
           root.style.setProperty('--glass', 'rgba(255, 255, 255, 0.06)');
           root.style.setProperty('--glass-border', 'rgba(255, 255, 255, 0.1)');
           root.style.setProperty('--text', 'rgba(255, 255, 255, 0.9)');
           root.style.setProperty('--text-dim', 'rgba(255, 255, 255, 0.5)');
+          document.body.style.background = '#000';
         } else {
-          root.style.setProperty('--glass', 'rgba(0, 0, 0, 0.06)');
-          root.style.setProperty('--glass-border', 'rgba(0, 0, 0, 0.1)');
+          // Light mode
+          root.style.setProperty('--glass', 'rgba(255, 255, 255, 0.3)');
+          root.style.setProperty('--glass-border', 'rgba(255, 255, 255, 0.2)');
           root.style.setProperty('--text', 'rgba(0, 0, 0, 0.9)');
-          root.style.setProperty('--text-dim', 'rgba(0, 0, 0, 0.5)');
+          root.style.setProperty('--text-dim', 'rgba(0, 0, 0, 0.6)');
+          document.body.style.background = '#f0f0f0';
         }
       }
 
       function resetSettings() {
         settings = {
           faceDetection: true,
-          boxColor: '#00FF00',
-          boxThickness: 2,
-          boxOpacity: 5,
           showTimeWidget: true,
           showWeatherWidget: true,
           widgetTransparency: 0,
           mirrorCamera: true,
-          lowLightMode: false,
           darkMode: true
         };
         
