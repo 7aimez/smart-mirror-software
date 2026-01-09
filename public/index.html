@@ -52,8 +52,6 @@
       display: flex;
       max-width: 100%;
       max-height: 100%;
-      width: 100%;
-      height: 100%;
     }
 
     #video {
@@ -219,8 +217,7 @@
       visibility: hidden;
       transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       overflow-y: auto;
-      max-height: calc(100% - 7rem); /* FIXED: Use percentage of parent */
-      max-width: calc(100% - 3rem); /* FIXED: Prevent overflow on sides */
+      max-height: calc(100vh - 7rem); /* Keep within video-wrapper */
       box-sizing: border-box;
     }
 
@@ -233,7 +230,7 @@
     /* Ensure settings stays within video-wrapper */
     @media (max-height: 600px) {
       #settings {
-        max-height: calc(100% - 5rem);
+        max-height: calc(100vh - 6rem);
       }
     }
 
@@ -466,9 +463,9 @@
       #settings {
         top: 4.5rem;
         right: 1rem;
-        width: calc(100% - 2rem); /* FIXED: Use percentage of parent */
+        width: calc(100vw - 2rem);
         max-width: 300px;
-        max-height: calc(100% - 5.5rem); /* FIXED: Use percentage */
+        max-height: calc(100vh - 5.5rem); /* Adjust for mobile */
       }
     }
 
@@ -490,20 +487,7 @@
       }
       
       #settings {
-        max-height: calc(100% - 5rem);
-        width: calc(100% - 2rem);
-        right: 1rem;
-        left: auto;
-      }
-    }
-
-    /* Small screens - ensure settings panel fits */
-    @media (max-width: 320px) {
-      #settings {
-        width: calc(100% - 1rem);
-        right: 0.5rem;
-        left: 0.5rem;
-        margin: 0 auto;
+        max-height: calc(100vh - 5rem);
       }
     }
   </style>
