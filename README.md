@@ -1,4 +1,8 @@
-# Software Smart Mirror (HTML + Camera Background)
+# Software Smart Mirror
+
+**(HTML + Camera Background)**
+
+---
 
 This is a small local web app that simulates a smart mirror UI. The camera stream is used as the mirrored background; widgets are overlaid in the foreground.
 
