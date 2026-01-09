@@ -15,7 +15,7 @@ Security & privacy
 - Weather uses Open‑Meteo (no key) and the browser's geolocation API (you'll be asked for permission).
 
 Run locally
-1. Save files (index.html, styles.css, script.js, README.md) into a folder.
+1. Save the public directory.
 2. Start a local static server (camera access requires secure context — localhost or HTTPS):
    - Python 3: `python -m http.server 8000`
    - Node: `npx http-server -p 8000`
