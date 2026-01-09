@@ -64,26 +64,16 @@
     ctx.clearRect(0,0,overlay.width,overlay.height);
   }
 
-  function drawBoxes(boxes, color='#00FF00', labelPrefix='Face'){
+  function drawBoxes(boxes, color='#00FF00'){
     ctx.lineWidth = Math.max(2, Math.round(overlay.width / 200));
     ctx.strokeStyle = color;
     ctx.fillStyle = color;
-    ctx.font = Math.max(12, Math.round(overlay.width / 40)) + 'px sans-serif';
 
     boxes.forEach((b, i) => {
       // b should be {x,y,width,height} in video pixel coordinates
       ctx.beginPath();
       ctx.rect(b.x, b.y, b.width, b.height);
       ctx.stroke();
-      const label = labelPrefix + ' #' + (i+1);
-      const textWidth = ctx.measureText(label).width;
-      const padding = 4;
-      const textX = b.x;
-      const textY = Math.max(12, b.y - 6);
-      ctx.fillRect(textX - 1, textY - parseInt(ctx.font,10), textWidth + padding*2, parseInt(ctx.font,10) + 6);
-      ctx.fillStyle = '#000';
-      ctx.fillText(label, textX + padding, textY + parseInt(ctx.font,10) - 2);
-      ctx.fillStyle = color;
     });
   }
 
@@ -170,7 +160,7 @@
               height: Math.round(item.height * sy)
             };
           });
-          drawBoxes(boxes, '#FF8C00', 'Face');
+          drawBoxes(boxes, '#FF8C00');
         }
       });
 
